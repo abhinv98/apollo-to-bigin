@@ -1,0 +1,1721 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apollo to Bigin Integration</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        .contact-row {
+            transition: all 0.2s ease;
+        }
+        
+        .contact-row:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .contact-row.selected {
+            background-color: #e8f4ff;
+        }
+        
+        .toolbar {
+            position: sticky;
+            top: 0;
+            background: white;
+            border-bottom: 1px solid #eee;
+            padding: 15px 0;
+            z-index: 100;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .loading-spinner {
+            width: 3rem;
+            height: 3rem;
+        }
+        
+        .success-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            animation: fadeOut 5s forwards;
+        }
+        
+        @keyframes fadeOut {
+            0% {
+                opacity: 1;
+            }
+            80% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+            }
+        }
+        /* Google Sheets-like Table Design - Simplified */
+        
+        .table-container {
+            position: relative;
+            border: 1px solid #dfe3e8;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+            background: #fff;
+            overflow: hidden;
+        }
+        /* Row numbers column */
+        
+        .row-numbers {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 30px;
+            background-color: #f8f9fa;
+            border-right: 1px solid #dfe1e6;
+            z-index: 10;
+        }
+        
+        .row-number-header {
+            height: 38px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dfe1e6;
+        }
+        
+        .row-number {
+            height: 38px;
+            line-height: 38px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+            border-bottom: 1px solid #f1f3f4;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .table-responsive {
+            overflow: auto;
+            max-height: 650px;
+            margin-left: 30px;
+            width: calc(100% - 30px);
+        }
+        /* Core table styling */
+        
+        .table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            margin-bottom: 0;
+            table-layout: fixed;
+        }
+        
+        .table th,
+        .table td {
+            padding: 8px 12px;
+            border-right: 1px solid #f1f3f4;
+            border-bottom: 1px solid #f1f3f4;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            height: 38px;
+            box-sizing: border-box;
+            position: relative;
+        }
+        /* Column width definitions */
+        
+        .table th.col-checkbox {
+            width: 45px;
+            min-width: 45px;
+        }
+        
+        .table th.col-name {
+            width: 120px;
+            min-width: 120px;
+        }
+        
+        .table th.col-email {
+            width: 200px;
+            min-width: 200px;
+        }
+        
+        .table th.col-title {
+            width: 180px;
+            min-width: 180px;
+        }
+        
+        .table th.col-org {
+            width: 180px;
+            min-width: 180px;
+        }
+        
+        .table th.col-phone {
+            width: 130px;
+            min-width: 130px;
+        }
+        
+        .table th.col-status {
+            width: 120px;
+            min-width: 120px;
+        }
+        /* Generic column widths for other columns */
+        
+        .table th:not([class*="col-"]) {
+            width: 150px;
+            min-width: 150px;
+        }
+        /* Header styling */
+        
+        .table thead {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+        
+        .table thead th {
+            background-color: #f8f9fa;
+            color: #3c4043;
+            font-weight: 500;
+            font-size: 13px;
+            text-align: left;
+            border-bottom: 1px solid #dfe1e6;
+            height: 38px;
+        }
+        /* Row styling */
+        
+        .table tbody tr:nth-of-type(even) {
+            background-color: #f8fafb;
+        }
+        
+        .table tbody tr:hover {
+            background-color: #f1f3f4;
+        }
+        /* New fixed column approach - simplified and more robust */
+        /* Apollo table fixed columns */
+        
+        #apollo-tab-pane .table th:first-child,
+        #apollo-tab-pane .table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+        }
+        /* Bigin table fixed columns */
+        
+        #bigin-tab-pane .table th:first-child,
+        #bigin-tab-pane .table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+        }
+        /* Z-index for header cells that are also fixed */
+        
+        #apollo-tab-pane .table thead th:first-child,
+        #bigin-tab-pane .table thead th:first-child {
+            z-index: 6;
+        }
+        /* Background colors for fixed columns */
+        
+        #apollo-tab-pane .table tbody tr:nth-of-type(odd) td:first-child,
+        #bigin-tab-pane .table tbody tr:nth-of-type(odd) td:first-child {
+            background-color: #ffffff;
+        }
+        
+        #apollo-tab-pane .table tbody tr:nth-of-type(even) td:first-child,
+        #bigin-tab-pane .table tbody tr:nth-of-type(even) td:first-child {
+            background-color: #f8fafb;
+        }
+        
+        #apollo-tab-pane .table tbody tr:hover td:first-child,
+        #bigin-tab-pane .table tbody tr:hover td:first-child {
+            background-color: #f1f3f4;
+        }
+        /* Header background for fixed columns */
+        
+        #apollo-tab-pane .table thead th:first-child,
+        #bigin-tab-pane .table thead th:first-child {
+            background-color: #f8f9fa;
+        }
+        /* Shadow for first fixed column */
+        
+        #apollo-tab-pane .table th:first-child::after,
+        #apollo-tab-pane .table td:first-child::after,
+        #bigin-tab-pane .table th:first-child::after,
+        #bigin-tab-pane .table td:first-child::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 4px;
+            box-shadow: inset -3px 0 5px -3px rgba(0, 0, 0, 0.1);
+            pointer-events: none;
+        }
+        /* Selected row styling */
+        
+        .contact-row.selected td {
+            background-color: #e8f0fe !important;
+        }
+        /* Badge styling */
+        
+        .company-badge,
+        .title-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .company-badge {
+            background-color: #e8eaed;
+            color: #3c4043;
+        }
+        
+        .title-badge {
+            background-color: #e6f4ea;
+            color: #137333;
+        }
+        
+        .synced-badge {
+            background-color: #d2e3fc;
+            color: #1a73e8;
+            font-weight: 500;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+        /* Empty state styling */
+        
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            color: #dadce0;
+            margin-bottom: 15px;
+            display: block;
+        }
+        
+        .empty-state h5 {
+            color: #5f6368;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .empty-state p {
+            color: #80868b;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        /* Tab styling */
+        
+        .nav-tabs .nav-link {
+            padding: 10px 20px;
+            font-weight: 500;
+            color: #495057;
+            border: 1px solid transparent;
+            border-top-left-radius: 0.25rem;
+            border-top-right-radius: 0.25rem;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-tabs .nav-link:hover {
+            background-color: #f8f9fa;
+            border-color: #e9ecef #e9ecef #dee2e6;
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: #0d6efd;
+            background-color: #fff;
+            border-color: #dee2e6 #dee2e6 #fff;
+            position: relative;
+        }
+        
+        .nav-tabs .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: #0d6efd;
+        }
+        
+        .nav-tabs .nav-link i {
+            margin-right: 5px;
+        }
+        /* Scrollbar styling */
+        
+        .table-responsive::-webkit-scrollbar {
+            height: 10px;
+            width: 10px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: #dadce0;
+            border-radius: 4px;
+        }
+        
+        .table-responsive::-webkit-scrollbar-thumb:hover {
+            background: #bdc1c6;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-fluid py-4">
+        <header class="pb-3 mb-4 border-bottom">
+            <div class="d-flex align-items-center">
+                <img src="https://apollo.io/static/media/icons/ico-main.svg" alt="Apollo.io" height="40" class="me-3">
+                <span class="fs-4">to</span>
+                <img src="https://www.zohowebstatic.com/sites/all/themes/zoho/images/bigin.svg" alt="Bigin" height="30" class="ms-3">
+            </div>
+            <p class="mt-2 text-muted">Sync your Apollo.io contacts to Bigin CRM</p>
+        </header>
+
+        <div class="alert alert-primary mb-4">
+            <h5><i class="bi bi-info-circle-fill me-2"></i> How to use this integration</h5>
+            <p class="mb-1">1. View your Apollo.io contacts in the <strong>Apollo Contacts</strong> tab</p>
+            <p class="mb-1">2. Select contacts and click <strong>Sync Selected to Bigin</strong>, or click <strong>Sync All to Bigin</strong></p>
+            <p class="mb-1">3. Verify your synced contacts by searching in the <strong>Bigin Contacts</strong> tab</p>
+            <p class="mb-0 small">Note: Synced contacts will be marked with a green badge in the Status column</p>
+        </div>
+
+        <div class="toolbar mb-4">
+            <ul class="nav nav-tabs" id="platformTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="apollo-tab" data-bs-toggle="tab" data-bs-target="#apollo-tab-pane" type="button" role="tab">
+                        <i class="bi bi-people"></i> Apollo Contacts
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="bigin-tab" data-bs-toggle="tab" data-bs-target="#bigin-tab-pane" type="button" role="tab">
+                        <i class="bi bi-database"></i> Bigin Contacts
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="tab-content" id="platformTabsContent">
+            <!-- Apollo Contacts Tab -->
+            <div class="tab-pane fade show active" id="apollo-tab-pane" role="tabpanel" tabindex="0">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="apolloSearchInput" placeholder="Search contacts...">
+                            <button class="btn btn-outline-secondary" type="button" id="apolloSearchButton">
+                                <i class="bi bi-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6 d-flex justify-content-end">
+                        <button class="btn btn-primary me-2" id="syncSelected" disabled>
+                            <i class="bi bi-arrow-right"></i> Sync Selected to Bigin
+                        </button>
+                        <button class="btn btn-success" id="syncAll" disabled>
+                            <i class="bi bi-arrow-right-square"></i> Sync All to Bigin
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="d-flex justify-content-between mb-2">
+                            <h5 id="apolloContactsCount">Apollo Contacts (0)</h5>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-2" id="selectAllApollo">Select All</button>
+                                <button class="btn btn-sm btn-outline-secondary" id="deselectAllApollo">Deselect All</button>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <div class="table-responsive position-relative">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th class="col-checkbox">
+                                                <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+                                            </th>
+                                            <th class="col-name">First Name</th>
+                                            <th class="col-name">Last Name</th>
+                                            <th class="col-email">Email</th>
+                                            <th class="col-title">Title</th>
+                                            <th class="col-org">Organization</th>
+                                            <th class="col-phone">Phone</th>
+                                            <th class="col-phone">Mobile Phone</th>
+                                            <th class="col-phone">Corporate Phone</th>
+                                            <th>Seniority</th>
+                                            <th>Departments</th>
+                                            <th>Sub Departments</th>
+                                            <th>LinkedIn URL</th>
+                                            <th>Twitter</th>
+                                            <th>Location</th>
+                                            <th>City</th>
+                                            <th>State</th>
+                                            <th>Country</th>
+                                            <th>Account ID</th>
+                                            <th>Account Owner ID</th>
+                                            <th>Source</th>
+                                            <th class="col-status">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="apolloContactsTable">
+                                        <!-- Apollo contacts will be loaded here -->
+                                        <tr>
+                                            <td colspan="22" class="text-center py-4">
+                                                <div class="spinner-border text-primary" role="status">
+                                                    <span class="visually-hidden">Loading...</span>
+                                                </div>
+                                                <p class="mt-2">Loading Apollo contacts...</p>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div class="scroll-hint" id="scrollHint">Scroll horizontally to see more fields →</div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div id="apolloPagination" class="d-flex">
+                                <button class="btn btn-sm btn-outline-secondary me-2" id="prevPageApollo" disabled>
+                                    <i class="bi bi-chevron-left"></i> Previous
+                                </button>
+                                <span class="align-self-center me-2" id="apolloPageInfo">Page 1</span>
+                                <button class="btn btn-sm btn-outline-secondary" id="nextPageApollo">
+                                    Next <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                            <select class="form-select form-select-sm" style="width: auto;" id="apolloPageSize">
+                                <option value="10">10 per page</option>
+                                <option value="25" selected>25 per page</option>
+                                <option value="50">50 per page</option>
+                                <option value="100">100 per page</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bigin Contacts Tab -->
+            <div class="tab-pane fade" id="bigin-tab-pane" role="tabpanel" tabindex="0">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="biginSearchInput" placeholder="Search Bigin contacts by name, email or company...">
+                            <button class="btn btn-outline-secondary" type="button" id="biginSearchButton">
+                                <i class="bi bi-search"></i> Search
+                            </button>
+                        </div>
+                        <small class="text-muted">Search is required to avoid Bigin API rate limits</small>
+                    </div>
+                    <div class="col-md-6 d-flex justify-content-end">
+                        <button class="btn btn-outline-primary" id="refreshBiginContacts">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh Contacts
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="d-flex justify-content-between mb-2">
+                            <h5 id="biginContactsCount">Bigin Contacts (0)</h5>
+                        </div>
+                        <div class="table-container">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th class="col-name">Full Name</th>
+                                            <th class="col-email">Email</th>
+                                            <th class="col-phone">Phone</th>
+                                            <th class="col-title">Title</th>
+                                            <th class="col-org">Account Name</th>
+                                            <th>Industry</th>
+                                            <th>Lead Source</th>
+                                            <th>Created Time</th>
+                                            <th>Last Activity</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="biginContactsTable">
+                                        <!-- Bigin contacts will be loaded here -->
+                                        <tr>
+                                            <td colspan="9" class="text-center py-4">
+                                                <div class="alert alert-info">
+                                                    <h5><i class="bi bi-info-circle"></i> Welcome to the Bigin Integration</h5>
+                                                    <p>To verify connections, please search for contacts by name, email, or company.</p>
+                                                    <p>This helps avoid API rate limits while allowing you to verify that contacts are being synced.</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div id="biginPagination" class="d-flex">
+                                <button class="btn btn-sm btn-outline-secondary me-2" id="prevPageBigin" disabled>
+                                    <i class="bi bi-chevron-left"></i> Previous
+                                </button>
+                                <span class="align-self-center me-2" id="biginPageInfo">Page 1</span>
+                                <button class="btn btn-sm btn-outline-secondary" id="nextPageBigin">
+                                    Next <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                            <select class="form-select form-select-sm" style="width: auto;" id="biginPageSize">
+                                <option value="10">10 per page</option>
+                                <option value="25" selected>25 per page</option>
+                                <option value="50">50 per page</option>
+                                <option value="100">100 per page</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sync Results Modal -->
+        <div class="modal fade" id="syncResultsModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Sync Results</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="syncResultsContent">
+                            <!-- Sync results will be shown here -->
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading d-none" id="loadingOverlay">
+        <div class="spinner-border text-primary loading-spinner" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <!-- Success Notification (will be dynamically added) -->
+    <div id="successNotificationContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+                    // State management
+                    const state = {
+                        apollo: {
+                            contacts: [],
+                            page: 1,
+                            pageSize: 25,
+                            totalPages: 1,
+                            searchQuery: '',
+                            selectedIds: new Set(),
+                            totalContacts: 0
+                        },
+                        bigin: {
+                            contacts: [],
+                            page: 1,
+                            pageSize: 25,
+                            totalPages: 1,
+                            searchQuery: '',
+                            totalContacts: 0
+                        },
+                        syncedContacts: new Set()
+                    };
+
+                    // Elements
+                    const elements = {
+                        // Apollo tab elements
+                        apolloSearchInput: document.getElementById('apolloSearchInput'),
+                        apolloSearchButton: document.getElementById('apolloSearchButton'),
+                        apolloContactsTable: document.getElementById('apolloContactsTable'),
+                        apolloContactsCount: document.getElementById('apolloContactsCount'),
+                        selectAllApollo: document.getElementById('selectAllApollo'),
+                        deselectAllApollo: document.getElementById('deselectAllApollo'),
+                        selectAllCheckbox: document.getElementById('selectAllCheckbox'),
+                        syncSelected: document.getElementById('syncSelected'),
+                        syncAll: document.getElementById('syncAll'),
+                        prevPageApollo: document.getElementById('prevPageApollo'),
+                        nextPageApollo: document.getElementById('nextPageApollo'),
+                        apolloPageInfo: document.getElementById('apolloPageInfo'),
+                        apolloPageSize: document.getElementById('apolloPageSize'),
+
+                        // Bigin tab elements
+                        biginSearchInput: document.getElementById('biginSearchInput'),
+                        biginSearchButton: document.getElementById('biginSearchButton'),
+                        biginContactsTable: document.getElementById('biginContactsTable'),
+                        biginContactsCount: document.getElementById('biginContactsCount'),
+                        refreshBiginContacts: document.getElementById('refreshBiginContacts'),
+                        prevPageBigin: document.getElementById('prevPageBigin'),
+                        nextPageBigin: document.getElementById('nextPageBigin'),
+                        biginPageInfo: document.getElementById('biginPageInfo'),
+                        biginPageSize: document.getElementById('biginPageSize'),
+
+                        // Shared elements
+                        loadingOverlay: document.getElementById('loadingOverlay'),
+                        syncResultsContent: document.getElementById('syncResultsContent'),
+                        successNotificationContainer: document.getElementById('successNotificationContainer')
+                    };
+
+                    // Initialize - Load Apollo contacts immediately
+                    loadApolloContacts();
+
+                    // Event listeners
+                    elements.apolloSearchButton.addEventListener('click', function() {
+                        state.apollo.searchQuery = elements.apolloSearchInput.value.trim();
+                        state.apollo.page = 1;
+                        loadApolloContacts();
+                    });
+
+                    elements.apolloSearchInput.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            state.apollo.searchQuery = elements.apolloSearchInput.value.trim();
+                            state.apollo.page = 1;
+                            loadApolloContacts();
+                        }
+                    });
+
+                    elements.biginSearchButton.addEventListener('click', function() {
+                        state.bigin.searchQuery = elements.biginSearchInput.value.trim();
+                        state.bigin.page = 1;
+                        loadBiginContacts();
+                    });
+
+                    elements.biginSearchInput.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            state.bigin.searchQuery = elements.biginSearchInput.value.trim();
+                            state.bigin.page = 1;
+                            loadBiginContacts();
+                        }
+                    });
+
+                    elements.refreshBiginContacts.addEventListener('click', loadBiginContacts);
+
+                    elements.selectAllApollo.addEventListener('click', selectAllApolloContacts);
+                    elements.deselectAllApollo.addEventListener('click', deselectAllApolloContacts);
+                    elements.selectAllCheckbox.addEventListener('change', function() {
+                        if (this.checked) {
+                            selectAllApolloContacts();
+                        } else {
+                            deselectAllApolloContacts();
+                        }
+                    });
+
+                    elements.syncSelected.addEventListener('click', syncSelectedContacts);
+                    elements.syncAll.addEventListener('click', syncAllContacts);
+
+                    elements.prevPageApollo.addEventListener('click', function() {
+                        if (state.apollo.page > 1) {
+                            state.apollo.page--;
+                            loadApolloContacts();
+                        }
+                    });
+
+                    elements.nextPageApollo.addEventListener('click', function() {
+                        if (state.apollo.page < state.apollo.totalPages) {
+                            state.apollo.page++;
+                            loadApolloContacts();
+                        }
+                    });
+
+                    elements.apolloPageSize.addEventListener('change', function() {
+                        state.apollo.pageSize = parseInt(this.value);
+                        state.apollo.page = 1;
+                        loadApolloContacts();
+                    });
+
+                    elements.prevPageBigin.addEventListener('click', function() {
+                        if (state.bigin.page > 1) {
+                            state.bigin.page--;
+                            loadBiginContacts();
+                        }
+                    });
+
+                    elements.nextPageBigin.addEventListener('click', function() {
+                        if (state.bigin.page < state.bigin.totalPages) {
+                            state.bigin.page++;
+                            loadBiginContacts();
+                        }
+                    });
+
+                    elements.biginPageSize.addEventListener('change', function() {
+                        state.bigin.pageSize = parseInt(this.value);
+                        state.bigin.page = 1;
+                        loadBiginContacts();
+                    });
+
+                    // Function to load Apollo contacts from API
+                    function loadApolloContacts() {
+                        elements.loadingOverlay.classList.remove('d-none');
+
+                        // Build query parameters
+                        const params = new URLSearchParams({
+                            page: state.apollo.page,
+                            perPage: state.apollo.pageSize
+                        });
+
+                        // Always include an empty query if none provided to ensure we fetch all leads
+                        if (state.apollo.searchQuery) {
+                            params.append('query', state.apollo.searchQuery);
+                        }
+
+                        // Fetch actual data from API
+                        fetch(`/api/apollo/contacts?${params.toString()}`)
+                            .then(response => {
+                                if (response.status === 429) {
+                                    throw new Error('rate_limit_exceeded');
+                                }
+                                if (!response.ok) {
+                                    throw new Error('Failed to fetch Apollo contacts');
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.success) {
+                                    // Update state with API response data
+                                    state.apollo.contacts = data.contacts;
+                                    state.apollo.page = data.page;
+                                    state.apollo.totalContacts = data.totalContacts;
+                                    state.apollo.totalPages = Math.ceil(data.totalContacts / state.apollo.pageSize);
+
+                                    // Render contacts
+                                    renderApolloContacts(state.apollo.contacts);
+
+                                    // Update page controls
+                                    elements.apolloPageInfo.textContent = `Page ${state.apollo.page} of ${state.apollo.totalPages || 1}`;
+                                    elements.prevPageApollo.disabled = state.apollo.page <= 1;
+                                    elements.nextPageApollo.disabled = state.apollo.page >= state.apollo.totalPages;
+
+                                    // Update counts
+                                    elements.apolloContactsCount.textContent = `Apollo Contacts (${state.apollo.totalContacts})`;
+
+                                    // Update button states
+                                    updateButtonStates();
+                                } else {
+                                    // Handle API error
+                                    console.error('API error:', data.error);
+                                    elements.apolloContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="22" class="text-center py-4">
+                                        <p class="text-danger">Error loading contacts: ${data.error}</p>
+                                    </td>
+                                </tr>
+                            `;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error fetching Apollo contacts:', error);
+
+                                // Special handling for rate limit errors
+                                if (error.message === 'rate_limit_exceeded') {
+                                    elements.apolloContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="22" class="text-center py-4">
+                                        <div class="alert alert-warning">
+                                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                            <strong>Rate limit exceeded</strong>
+                                            <p class="mb-0">You've reached the API rate limit. Please wait a few minutes before trying again.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                                } else {
+                                    elements.apolloContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="22" class="text-center py-4">
+                                        <p class="text-danger">Error: ${error.message}</p>
+                                    </td>
+                                </tr>
+                            `;
+                                }
+                            })
+                            .finally(() => {
+                                elements.loadingOverlay.classList.add('d-none');
+                            });
+                    }
+
+                    // Function to load Bigin contacts from API
+                    function loadBiginContacts() {
+                        elements.loadingOverlay.classList.remove('d-none');
+
+                        // Build query parameters
+                        const params = new URLSearchParams({
+                            page: state.bigin.page,
+                            perPage: state.bigin.pageSize
+                        });
+
+                        // Determine if we're doing a search or regular fetch
+                        let endpoint = '/api/bigin/contacts';
+
+                        if (state.bigin.searchQuery) {
+                            endpoint = '/api/bigin/contacts/search';
+                            params.append('query', state.bigin.searchQuery);
+                        }
+
+                        // Fetch actual data from API
+                        fetch(`${endpoint}?${params.toString()}`)
+                            .then(response => {
+                                if (response.status === 429) {
+                                    throw new Error('rate_limit_exceeded');
+                                }
+                                if (!response.ok) {
+                                    throw new Error('Failed to fetch Bigin contacts');
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.success) {
+                                    // Update state with API response data
+                                    state.bigin.contacts = data.contacts;
+                                    state.bigin.page = data.page;
+                                    state.bigin.totalContacts = data.totalContacts;
+                                    state.bigin.totalPages = Math.ceil(data.totalContacts / state.bigin.pageSize);
+
+                                    // Render contacts
+                                    renderBiginContacts(state.bigin.contacts);
+
+                                    // Update page controls
+                                    elements.biginPageInfo.textContent = `Page ${state.bigin.page} of ${state.bigin.totalPages || 1}`;
+                                    elements.prevPageBigin.disabled = state.bigin.page <= 1;
+                                    elements.nextPageBigin.disabled = state.bigin.page >= state.bigin.totalPages;
+
+                                    // Update counts
+                                    elements.biginContactsCount.textContent = `Bigin Contacts (${state.bigin.totalContacts})`;
+                                } else {
+                                    // Handle API error
+                                    console.error('API error:', data.error);
+                                    elements.biginContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <p class="text-danger">Error loading contacts: ${data.error}</p>
+                                    </td>
+                                </tr>
+                            `;
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error fetching Bigin contacts:', error);
+
+                                // Special handling for rate limit errors
+                                if (error.message === 'rate_limit_exceeded') {
+                                    elements.biginContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <div class="alert alert-warning">
+                                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                            <strong>Rate limit exceeded</strong>
+                                            <p class="mb-0">You've reached the API rate limit. Please wait a few minutes before trying again.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                                } else {
+                                    elements.biginContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <p class="text-danger">Error: ${error.message}</p>
+                                    </td>
+                                </tr>
+                            `;
+                                }
+                            })
+                            .finally(() => {
+                                elements.loadingOverlay.classList.add('d-none');
+                            });
+                    }
+
+                    // Render Apollo contacts in table
+                    function renderApolloContacts(contacts) {
+                        if (contacts.length === 0) {
+                            elements.apolloContactsTable.innerHTML = `
+                        <tr>
+                            <td colspan="22" class="text-center py-4">
+                                <div class="empty-state">
+                                    <i class="bi bi-search"></i>
+                                    <h5>No contacts found</h5>
+                                    <p>Try adjusting your search or view all contacts</p>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                            return;
+                        }
+
+                        let html = '';
+                        contacts.forEach(contact => {
+                                    const isSelected = state.apollo.selectedIds.has(contact.id);
+                                    const isSynced = state.syncedContacts.has(contact.id);
+
+                                    html += `
+                        <tr class="contact-row ${isSelected ? 'selected' : ''}" data-id="${contact.id}">
+                            <td class="col-checkbox">
+                                <input class="form-check-input contact-select" type="checkbox" 
+                                    value="${contact.id}" ${isSelected ? 'checked' : ''}>
+                            </td>
+                            <td class="col-name cell-text-primary">${contact.first_name || ''}</td>
+                            <td class="col-name cell-text-primary">${contact.last_name || ''}</td>
+                            <td class="col-email">${contact.email || ''}</td>
+                            <td class="col-title">
+                                ${contact.title ? `<span class="title-badge">${contact.title}</span>` : ''}
+                            </td>
+                            <td class="col-org">
+                                ${contact.organization_name ? `<span class="company-badge">${contact.organization_name}</span>` : ''}
+                            </td>
+                            <td class="col-phone cell-text-secondary">${contact.phone_number || ''}</td>
+                            <td class="col-phone cell-text-secondary">${contact.mobile_phone || ''}</td>
+                            <td class="col-phone cell-text-secondary">${contact.corporate_phone || ''}</td>
+                            <td>${contact.seniority || ''}</td>
+                            <td>${contact.departments ? contact.departments.join(', ') : ''}</td>
+                            <td>${contact.subdepartments ? contact.subdepartments.join(', ') : ''}</td>
+                            <td>${contact.linkedin_url || ''}</td>
+                            <td>${contact.twitter_url || ''}</td>
+                            <td>${contact.location || ''}</td>
+                            <td>${contact.city || ''}</td>
+                            <td>${contact.state || ''}</td>
+                            <td>${contact.country || ''}</td>
+                            <td>${contact.account_id || ''}</td>
+                            <td>${contact.account_owner_id || ''}</td>
+                            <td>${contact.source || ''}</td>
+                            <td class="col-status">
+                                ${isSynced ? '<span class="badge synced-badge">Synced to Bigin</span>' : ''}
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                elements.apolloContactsTable.innerHTML = html;
+
+                // Add event listeners to checkboxes
+                document.querySelectorAll('.contact-select').forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        const contactId = this.value;
+                        const row = this.closest('tr');
+
+                        if (this.checked) {
+                            state.apollo.selectedIds.add(contactId);
+                            row.classList.add('selected');
+                        } else {
+                            state.apollo.selectedIds.delete(contactId);
+                            row.classList.remove('selected');
+                        }
+
+                        updateButtonStates();
+                    });
+                });
+
+                // Add row click handler
+                document.querySelectorAll('.contact-row').forEach(row => {
+                    row.addEventListener('click', function(e) {
+                        // Don't toggle if clicking on checkbox directly
+                        if (e.target.tagName !== 'INPUT') {
+                            const checkbox = this.querySelector('.contact-select');
+                            checkbox.checked = !checkbox.checked;
+
+                            // Trigger change event
+                            const event = new Event('change');
+                            checkbox.dispatchEvent(event);
+                        }
+                    });
+                });
+            }
+
+            // Render Bigin contacts in table
+            function renderBiginContacts(contacts) {
+                if (contacts.length === 0) {
+                    elements.biginContactsTable.innerHTML = `
+                        <tr>
+                            <td colspan="9" class="text-center py-4">
+                                <div class="empty-state">
+                                    <i class="bi bi-search"></i>
+                                    <h5>No contacts found in Bigin</h5>
+                                    <p>Try searching for a specific contact or company name</p>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                contacts.forEach(contact => {
+                    // Format dates if they exist
+                    const createdTime = contact.Created_Time ? new Date(contact.Created_Time).toLocaleString() : '';
+                    const lastActivityTime = contact.Last_Activity_Time ? new Date(contact.Last_Activity_Time).toLocaleString() : '';
+
+                    html += `
+                        <tr>
+                            <td class="col-name cell-text-primary">${contact.Full_Name || ''}</td>
+                            <td class="col-email">${contact.Email || ''}</td>
+                            <td class="col-phone cell-text-secondary">${contact.Phone || ''}</td>
+                            <td class="col-title">
+                                ${contact.Title ? `<span class="title-badge">${contact.Title}</span>` : ''}
+                            </td>
+                            <td class="col-org">
+                                ${contact.Account_Name && contact.Account_Name.name ? 
+                                  `<span class="company-badge">${contact.Account_Name.name}</span>` : ''}
+                            </td>
+                            <td>${contact.Industry_Drop || ''}</td>
+                            <td>${contact.Lead_Source || ''}</td>
+                            <td class="date-field">${createdTime}</td>
+                            <td class="date-field">${lastActivityTime}</td>
+                        </tr>
+                    `;
+                });
+
+                elements.biginContactsTable.innerHTML = html;
+            }
+
+            // Select all Apollo contacts
+            function selectAllApolloContacts() {
+                state.apollo.contacts.forEach(contact => {
+                    state.apollo.selectedIds.add(contact.id);
+                });
+
+                document.querySelectorAll('.contact-select').forEach(checkbox => {
+                    checkbox.checked = true;
+                    checkbox.closest('tr').classList.add('selected');
+                });
+
+                elements.selectAllCheckbox.checked = true;
+                updateButtonStates();
+            }
+
+            // Deselect all Apollo contacts
+            function deselectAllApolloContacts() {
+                state.apollo.selectedIds.clear();
+
+                document.querySelectorAll('.contact-select').forEach(checkbox => {
+                    checkbox.checked = false;
+                    checkbox.closest('tr').classList.remove('selected');
+                });
+
+                elements.selectAllCheckbox.checked = false;
+                updateButtonStates();
+            }
+
+            // Update button states based on selection
+            function updateButtonStates() {
+                elements.syncSelected.disabled = state.apollo.selectedIds.size === 0;
+                elements.syncAll.disabled = state.apollo.contacts.length === 0;
+            }
+
+            // Sync selected contacts to Bigin
+            function syncSelectedContacts() {
+                if (state.apollo.selectedIds.size === 0) return;
+
+                const selectedContacts = state.apollo.contacts.filter(
+                    contact => state.apollo.selectedIds.has(contact.id)
+                );
+
+                performSync(selectedContacts);
+            }
+
+            // Sync all displayed contacts to Bigin
+            function syncAllContacts() {
+                if (state.apollo.contacts.length === 0) return;
+
+                performSync(state.apollo.contacts);
+            }
+
+            // Perform sync operation with actual API
+            function performSync(contacts) {
+                elements.loadingOverlay.classList.remove('d-none');
+
+                // Make API call to bulk sync endpoint
+                fetch('/api/sync/contacts/bulk', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contacts
+                        })
+                    })
+                    .then(response => {
+                        if (response.status === 429) {
+                            throw new Error('rate_limit_exceeded');
+                        }
+                        if (!response.ok) {
+                            throw new Error('Failed to sync contacts');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            // Process results
+                            const results = data.results;
+
+                            // Update synced contacts in state
+                            results.forEach(result => {
+                                if (result.success) {
+                                    state.syncedContacts.add(result.id);
+                                }
+                            });
+
+                            // Show results
+                            showSyncResults(results);
+
+                            // Update the UI to show synced status
+                            loadApolloContacts();
+
+                            // Show success notification
+                            const successCount = results.filter(r => r.success).length;
+                            if (successCount > 0) {
+                                showSuccessNotification(`Successfully synced ${successCount} contacts to Bigin`);
+                            }
+                        } else {
+                            console.error('API error:', data.error);
+                            showSyncResults([{
+                                id: 'error',
+                                name: 'Error',
+                                email: '',
+                                company: '',
+                                success: false,
+                                message: data.error || 'Unknown error occurred'
+                            }]);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error syncing contacts:', error);
+
+                        // Special handling for rate limit errors
+                        if (error.message === 'rate_limit_exceeded') {
+                            showSyncResults([{
+                                id: 'rate-limit',
+                                name: 'Rate Limit Exceeded',
+                                email: '',
+                                company: '',
+                                success: false,
+                                message: 'You have reached the API rate limit. Please wait a few minutes before trying again.'
+                            }]);
+                        } else {
+                            showSyncResults([{
+                                id: 'error',
+                                name: 'Error',
+                                email: '',
+                                company: '',
+                                success: false,
+                                message: error.message
+                            }]);
+                        }
+                    })
+                    .finally(() => {
+                        elements.loadingOverlay.classList.add('d-none');
+                    });
+            }
+
+            // Show sync results in modal
+            function showSyncResults(results) {
+                const successCount = results.filter(r => r.success).length;
+                const errorCount = results.length - successCount;
+
+                let html = `
+                    <div class="alert ${errorCount > 0 ? 'alert-warning' : 'alert-success'}">
+                        <h6>Sync Results: ${successCount} successful, ${errorCount} failed</h6>
+                    </div>
+                    <div class="list-group">
+                `;
+
+                results.forEach(result => {
+                    html += `
+                        <div class="list-group-item list-group-item-${result.success ? 'success' : 'danger'} d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${result.name}</strong> <small>(${result.email || 'N/A'})</small>
+                                <div>${result.message}</div>
+                            </div>
+                            <span class="badge bg-${result.success ? 'success' : 'danger'} rounded-pill">
+                                ${result.success ? 'Success' : 'Error'}
+                            </span>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+
+                elements.syncResultsContent.innerHTML = html;
+
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('syncResultsModal'));
+                modal.show();
+            }
+
+            // Show success notification
+            function showSuccessNotification(message) {
+                const notification = document.createElement('div');
+                notification.className = 'alert alert-success success-alert';
+                notification.role = 'alert';
+                notification.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i> ${message}`;
+
+                elements.successNotificationContainer.appendChild(notification);
+
+                // Remove notification after animation completes
+                setTimeout(() => {
+                    notification.remove();
+                }, 5000);
+            }
+
+            // Add event listener for tab change
+            document.getElementById('bigin-tab').addEventListener('show.bs.tab', function() {
+                // Load Bigin contacts when tab is activated
+                loadBiginContacts();
+            });
+
+            // Check connection status when page loads
+            fetch('/api/bigin/status')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to check connection status');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data.connected) {
+                        showConnectionWarning();
+                    } else if (data.usingCache) {
+                        // Show a different message if we're using cached contacts
+                        showCachedDataInfo(data.contactCount);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking connection status:', error);
+                    showConnectionWarning();
+                });
+
+            // Show connection warning
+            function showConnectionWarning() {
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-warning alert-dismissible fade show';
+                alert.innerHTML = `
+                    <strong>Connection Issue:</strong> Unable to connect to Bigin. Please check your API credentials in the .env file.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+
+                document.querySelector('header').after(alert);
+            }
+
+            // Show cached data info
+            function showCachedDataInfo(count) {
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-info alert-dismissible fade show';
+                alert.innerHTML = `
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                    <strong>Using cached data:</strong> Displaying ${count} contacts from cache to avoid API rate limits.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+
+                document.querySelector('header').after(alert);
+            }
+
+            // Add scroll hint for horizontal scrolling
+            const tableResponsive = document.querySelector('.table-responsive');
+            const scrollHint = document.getElementById('scrollHint');
+
+            if (tableResponsive && scrollHint) {
+                let scrollTimer;
+
+                tableResponsive.addEventListener('scroll', function() {
+                    scrollHint.classList.add('hide');
+
+                    clearTimeout(scrollTimer);
+                    scrollTimer = setTimeout(function() {
+                        if (tableResponsive.scrollLeft === 0) {
+                            scrollHint.classList.remove('hide');
+                        }
+                    }, 1000);
+                });
+
+                // Hide hint after 5 seconds
+                setTimeout(function() {
+                    scrollHint.classList.add('hide');
+                }, 5000);
+            }
+
+            // Update row numbers based on visible rows
+            function updateRowNumbers() {
+                document.querySelectorAll('.table-container').forEach(container => {
+                    const rowNumbersDiv = container.querySelector('.row-numbers');
+                    const tbody = container.querySelector('tbody');
+                    
+                    if (rowNumbersDiv && tbody) {
+                        const rows = tbody.querySelectorAll('tr');
+                        
+                        // Check if there's real data (not just a message row)
+                        if (rows.length > 0 && !rows[0].querySelector('td[colspan]')) {
+                            // Clear existing row numbers
+                            rowNumbersDiv.innerHTML = '';
+                            
+                            // Add header placeholder to align with table header
+                            const headerPlaceholder = document.createElement('div');
+                            headerPlaceholder.className = 'row-number-header';
+                            headerPlaceholder.style.height = container.querySelector('thead tr').offsetHeight + 'px';
+                            rowNumbersDiv.appendChild(headerPlaceholder);
+                            
+                            // Add new row numbers (starting with 1 for the first data row)
+                            rows.forEach((row, index) => {
+                                const rowNum = document.createElement('div');
+                                rowNum.className = 'row-number';
+                                rowNum.textContent = index + 1;
+                                // Match the exact height of the table row
+                                rowNum.style.height = row.offsetHeight + 'px';
+                                rowNumbersDiv.appendChild(rowNum);
+                            });
+                        } else {
+                            // Clear row numbers if there's no data
+                            rowNumbersDiv.innerHTML = '';
+                            
+                            // Still add header placeholder
+                            const headerPlaceholder = document.createElement('div');
+                            headerPlaceholder.className = 'row-number-header';
+                            if (container.querySelector('thead tr')) {
+                                headerPlaceholder.style.height = container.querySelector('thead tr').offsetHeight + 'px';
+                            }
+                            rowNumbersDiv.appendChild(headerPlaceholder);
+                        }
+                    }
+                });
+            }
+
+            // Add row numbers to tables (Google Sheets style)
+            function addRowNumbers() {
+                // Add a left gutter to the tables for row numbers
+                document.querySelectorAll('.table-container').forEach(container => {
+                    // If the row number column doesn't exist yet
+                    if (!container.querySelector('.row-numbers')) {
+                        const rowNumbersDiv = document.createElement('div');
+                        rowNumbersDiv.className = 'row-numbers';
+                        
+                        const tableContainer = container.querySelector('.table-responsive');
+                        if (tableContainer) {
+                            // Listen for scroll events to sync vertical position
+                            tableContainer.addEventListener('scroll', function() {
+                                rowNumbersDiv.scrollTop = this.scrollTop;
+                            });
+                            
+                            container.insertBefore(rowNumbersDiv, tableContainer);
+                        }
+                    }
+                });
+                
+                // Update row numbers when data changes
+                updateRowNumbers();
+            }
+
+            // Original renderApolloContacts function - remove class-adding part that's now handled by CSS
+            const originalRenderApolloContacts = renderApolloContacts;
+            renderApolloContacts = function(contacts) {
+                originalRenderApolloContacts.call(this, contacts);
+                setTimeout(updateRowNumbers, 100);
+            };
+            
+            // Original renderBiginContacts function - remove class-adding part that's now handled by CSS
+            const originalRenderBiginContacts = renderBiginContacts;
+            renderBiginContacts = function(contacts) {
+                originalRenderBiginContacts.call(this, contacts);
+                setTimeout(updateRowNumbers, 100);
+            };
+
+            // Initialize row numbers and tooltips
+            addRowNumbers();
+
+            // Fix for tab switching issue with row numbers
+            document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+                tab.addEventListener('shown.bs.tab', function() {
+                    // Completely reinitialize row numbers when switching tabs
+                    document.querySelectorAll('.row-numbers').forEach(el => el.remove());
+                    addRowNumbers();
+                    setTimeout(updateRowNumbers, 100);
+                });
+            });
+
+            // Add keyboard navigation
+            function addKeyboardNavigation() {
+                // Current selected row index
+                let selectedRowIndex = -1;
+                let lastTableId = null;
+                
+                // Add cell hover highlight element
+                const cellHighlight = document.createElement('div');
+                cellHighlight.className = 'table-cell-hover';
+                cellHighlight.style.display = 'none';
+                document.body.appendChild(cellHighlight);
+                
+                // Add highlight on cell hover
+                document.querySelectorAll('.table-container').forEach(container => {
+                    const table = container.querySelector('table');
+                    if (!table) return;
+                    
+                    const tableId = table.closest('.tab-pane').id;
+                    
+                    // Add hover highlighting
+                    table.addEventListener('mousemove', function(e) {
+                        const cell = e.target.closest('td');
+                        
+                        if (cell) {
+                            const cellRect = cell.getBoundingClientRect();
+                            const tableRect = table.getBoundingClientRect();
+                            
+                            // Store the current table ID
+                            lastTableId = tableId;
+                            
+                            // Get row and column indices
+                            const row = cell.parentElement;
+                            const rowIndex = Array.from(table.querySelectorAll('tbody tr')).indexOf(row);
+                            const colIndex = Array.from(row.children).indexOf(cell);
+                            
+                            if (rowIndex !== -1) {
+                                // Show cell highlight
+                                cellHighlight.style.display = 'block';
+                                cellHighlight.style.left = cellRect.left + 'px';
+                                cellHighlight.style.top = cellRect.top + 'px';
+                                cellHighlight.style.width = cellRect.width + 'px';
+                                cellHighlight.style.height = cellRect.height + 'px';
+                                
+                                // Add hover effects to all cells in the same row and column
+                                for (let i = 0; i < row.children.length; i++) {
+                                    row.children[i].classList.toggle('table-col-highlight', i === colIndex);
+                                }
+                                
+                                const rows = table.querySelectorAll('tbody tr');
+                                for (let i = 0; i < rows.length; i++) {
+                                    if (i === rowIndex) continue;
+                                    const cell = rows[i].children[colIndex];
+                                    if (cell) {
+                                        cell.classList.add('table-col-highlight');
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Remove highlight when mouse leaves
+                    table.addEventListener('mouseleave', function() {
+                        cellHighlight.style.display = 'none';
+                        table.querySelectorAll('.table-col-highlight').forEach(cell => {
+                            cell.classList.remove('table-col-highlight');
+                        });
+                    });
+                    
+                    // Click to select a row
+                    table.addEventListener('click', function(e) {
+                        const row = e.target.closest('tr');
+                        if (row && !row.querySelector('td[colspan]')) {
+                            // Remove previous selection
+                            table.querySelectorAll('tr.keyboard-selected').forEach(r => {
+                                r.classList.remove('keyboard-selected');
+                            });
+                            
+                            // Add new selection
+                            row.classList.add('keyboard-selected');
+                            selectedRowIndex = Array.from(table.querySelectorAll('tbody tr')).indexOf(row);
+                        }
+                    });
+                });
+                
+                // Add keyboard navigation
+                document.addEventListener('keydown', function(e) {
+                    // Only handle keyboard navigation when a table is visible and active
+                    const activeTableContainer = document.querySelector('.tab-pane.active .table-container');
+                    if (!activeTableContainer) return;
+                    
+                    const table = activeTableContainer.querySelector('table');
+                    const rows = table ? Array.from(table.querySelectorAll('tbody tr')).filter(row => !row.querySelector('td[colspan]')) : [];
+                    
+                    if (rows.length === 0) return;
+                    
+                    let newIndex = selectedRowIndex;
+                    
+                    switch (e.key) {
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            newIndex = Math.max(0, selectedRowIndex - 1);
+                            break;
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            newIndex = Math.min(rows.length - 1, selectedRowIndex + 1);
+                            if (selectedRowIndex === -1) newIndex = 0;
+                            break;
+                        case 'Home':
+                            e.preventDefault();
+                            newIndex = 0;
+                            break;
+                        case 'End':
+                            e.preventDefault();
+                            newIndex = rows.length - 1;
+                            break;
+                        case 'Enter':
+                            // If we're in the Apollo tab, toggle the checkbox
+                            if (selectedRowIndex >= 0 && lastTableId === 'apollo-tab-pane') {
+                                e.preventDefault();
+                                const row = rows[selectedRowIndex];
+                                const checkbox = row.querySelector('input[type="checkbox"]');
+                                if (checkbox) {
+                                    checkbox.checked = !checkbox.checked;
+                                    const event = new Event('change');
+                                    checkbox.dispatchEvent(event);
+                                }
+                            }
+                            break;
+                    }
+                    
+                    // If the index changed, update the selection
+                    if (newIndex !== selectedRowIndex && newIndex >= 0) {
+                        // Remove previous selection
+                        rows.forEach(row => row.classList.remove('keyboard-selected'));
+                        
+                        // Add new selection
+                        rows[newIndex].classList.add('keyboard-selected');
+                        selectedRowIndex = newIndex;
+                        
+                        // Scroll to make the selected row visible if needed
+                        const rowRect = rows[newIndex].getBoundingClientRect();
+                        const tableContainer = activeTableContainer.querySelector('.table-responsive');
+                        const containerRect = tableContainer.getBoundingClientRect();
+                        
+                        if (rowRect.bottom > containerRect.bottom) {
+                            tableContainer.scrollTop += rowRect.bottom - containerRect.bottom;
+                        } else if (rowRect.top < containerRect.top) {
+                            tableContainer.scrollTop -= containerRect.top - rowRect.top;
+                        }
+                    }
+                });
+                
+                // Right-click context menu
+                document.querySelectorAll('.table-container').forEach(container => {
+                    const table = container.querySelector('table');
+                    if (!table) return;
+                    
+                    const tableId = table.closest('.tab-pane').id;
+                    
+                    // Create context menu
+                    const contextMenu = document.createElement('div');
+                    contextMenu.className = 'context-menu';
+                    contextMenu.style.display = 'none';
+                    document.body.appendChild(contextMenu);
+                    
+                    // Show context menu on right click
+                    table.addEventListener('contextmenu', function(e) {
+                        e.preventDefault();
+                        
+                        const row = e.target.closest('tr');
+                        if (!row || row.querySelector('td[colspan]')) return;
+                        
+                        // Get row index
+                        const rowIndex = Array.from(table.querySelectorAll('tbody tr')).indexOf(row);
+                        
+                        // Set context menu position
+                        contextMenu.style.left = e.pageX + 'px';
+                        contextMenu.style.top = e.pageY + 'px';
+                        
+                        // Clear existing menu items
+                        contextMenu.innerHTML = '';
+                        
+                        // Create menu items based on the table
+                        if (tableId === 'apollo-tab-pane') {
+                            // Select/Deselect
+                            const checkbox = row.querySelector('input[type="checkbox"]');
+                            const isSelected = checkbox && checkbox.checked;
+                            
+                            const selectItem = document.createElement('div');
+                            selectItem.className = 'context-menu-item';
+                            selectItem.innerHTML = `<i class="bi bi-${isSelected ? 'x-square' : 'check-square'}"></i> ${isSelected ? 'Deselect' : 'Select'}`;
+                            selectItem.addEventListener('click', function() {
+                                if (checkbox) {
+                                    checkbox.checked = !checkbox.checked;
+                                    const event = new Event('change');
+                                    checkbox.dispatchEvent(event);
+                                    hideContextMenu();
+                                }
+                            });
+                            contextMenu.appendChild(selectItem);
+                            
+                            // Separator
+                            const separator = document.createElement('div');
+                            separator.className = 'context-menu-separator';
+                            contextMenu.appendChild(separator);
+                            
+                            // Sync to Bigin
+                            const syncItem = document.createElement('div');
+                            syncItem.className = 'context-menu-item';
+                            syncItem.innerHTML = '<i class="bi bi-arrow-right"></i> Sync to Bigin';
+                            syncItem.addEventListener('click', function() {
+                                // Get contact data
+                                const contactId = row.getAttribute('data-id');
+                                const contact = state.apollo.contacts.find(c => c.id === contactId);
+                                
+                                if (contact) {
+                                    performSync([contact]);
+                                }
+                                
+                                hideContextMenu();
+                            });
+                            contextMenu.appendChild(syncItem);
+                        } else {
+                            // For Bigin contacts
+                            // View details
+                            const viewItem = document.createElement('div');
+                            viewItem.className = 'context-menu-item';
+                            viewItem.innerHTML = '<i class="bi bi-eye"></i> View Details';
+                            viewItem.addEventListener('click', function() {
+                                // You could implement a details view here
+                                alert('View details functionality would be implemented here');
+                                hideContextMenu();
+                            });
+                            contextMenu.appendChild(viewItem);
+                        }
+                        
+                        // Show the menu
+                        contextMenu.style.display = 'block';
+                        
+                        // Select the row
+                        table.querySelectorAll('tr.keyboard-selected').forEach(r => {
+                            r.classList.remove('keyboard-selected');
+                        });
+                        row.classList.add('keyboard-selected');
+                        selectedRowIndex = rowIndex;
+                    });
+                    
+                    // Hide context menu when clicking elsewhere
+                    function hideContextMenu() {
+                        contextMenu.style.display = 'none';
+                    }
+                    
+                    document.addEventListener('click', hideContextMenu);
+                    document.addEventListener('scroll', hideContextMenu);
+                });
+            }
+
+            // Initialize keyboard navigation after everything else is set up
+            setTimeout(addKeyboardNavigation, 1000);
+        });
+    </script>
+</body>
+
+</html>
