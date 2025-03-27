@@ -1324,6 +1324,11 @@
                                         : contact.mobile_phone 
                                             ? '••••••••••• <span class="badge bg-secondary">Click Reveal</span>' 
                                             : '';
+                                    
+                                    // Get organization info (either from organization object or direct property)
+                                    const orgName = contact.organization 
+                                        ? contact.organization.name 
+                                        : contact.organization_name || '';
 
                                     html += `
                         <tr class="contact-row ${isSelected ? 'selected' : ''}" data-id="${contact.id}">
@@ -1338,9 +1343,9 @@
                                 ${contact.title ? `<span class="title-badge">${contact.title}</span>` : ''}
                             </td>
                             <td class="col-org">
-                                ${contact.organization_name ? `<span class="company-badge">${contact.organization_name}</span>` : ''}
+                                ${orgName ? `<span class="company-badge">${orgName}</span>` : ''}
                             </td>
-                            <td class="col-phone cell-text-secondary">${contact.phone_number || ''}</td>
+                            <td class="col-phone cell-text-secondary">${contact.phone || contact.phone_number || ''}</td>
                             <td class="col-phone cell-text-secondary">${displayPhone}</td>
                             <td>${contact.seniority || ''}</td>
                             <td>${contact.location || ''}</td>
