@@ -403,6 +403,51 @@
             margin-bottom: 0.25rem;
         }
         
+        /* Industries dropdown styling */
+        #industryFilter {
+            background-color: #111;
+            color: #fff;
+            border: 1px solid #333;
+        }
+        
+        #industryFilter option {
+            background-color: #292929;
+            color: #fff;
+            padding: 8px 12px;
+        }
+        
+        .industry-dropdown {
+            position: relative;
+        }
+        
+        .industry-dropdown .dropdown-menu {
+            width: 100%;
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: #292929;
+            border: 1px solid #333;
+            padding: 0;
+        }
+        
+        .industry-dropdown .dropdown-item {
+            color: #fff;
+            padding: 8px 15px;
+        }
+        
+        .industry-dropdown .dropdown-item:hover {
+            background-color: #3a3a3a;
+        }
+        
+        .industry-dropdown .form-control {
+            background-color: #212121;
+            color: #fff;
+            border: 1px solid #333;
+        }
+        
+        .industry-dropdown .form-control::placeholder {
+            color: #aaa;
+        }
+        
         /* Button disabled state */
         .btn:disabled {
             cursor: not-allowed;
@@ -471,10 +516,21 @@
                                     </div>
                                     <div class="col-md-3 mb-2">
                                         <label for="industryFilter" class="form-label">Industry</label>
-                                        <select class="form-select" id="industryFilter">
-                                            <option value="">Select industry</option>
-                                            <!-- Industries will be populated dynamically -->
-                                        </select>
+                                        <div class="industry-dropdown">
+                                            <div class="dropdown">
+                                                <button class="btn form-control dropdown-toggle text-start d-flex justify-content-between align-items-center" type="button" id="industryDropdownButton" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <span class="industry-selection-text">Search industries...</span>
+                                                    <i class="bi bi-chevron-down"></i>
+                                                </button>
+                                                <div class="dropdown-menu w-100 p-2" aria-labelledby="industryDropdownButton">
+                                                    <input type="text" class="form-control mb-2" id="industrySearchInput" placeholder="Search industries...">
+                                                    <div class="industry-list">
+                                                        <!-- Industries will be populated dynamically -->
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <input type="hidden" id="industryFilter" name="industry">
+                                        </div>
                                     </div>
                                     <div class="col-md-3 mb-2">
                                         <label for="keywordsFilter" class="form-label">Keywords</label>
@@ -729,7 +785,7 @@
                         // Apollo tab elements
                         jobTitleFilter: document.getElementById('jobTitleFilter'),
                         regionFilter: document.getElementById('regionFilter'),
-                        industryFilter: document.getElementById('industryFilter'),
+                        industryDropdownButton: document.getElementById('industryDropdownButton'),
                         keywordsFilter: document.getElementById('keywordsFilter'),
                         applyFilters: document.getElementById('applyFilters'),
                         clearFilters: document.getElementById('clearFilters'),
@@ -776,7 +832,8 @@
                     elements.clearFilters.addEventListener('click', function() {
                         elements.jobTitleFilter.value = '';
                         elements.regionFilter.value = '';
-                        elements.industryFilter.value = '';
+                        document.getElementById('industryFilter').value = '';
+                        document.querySelector('.industry-selection-text').textContent = 'Search industries...';
                         elements.keywordsFilter.value = '';
                         updateFilters();
                         loadApolloContacts();
@@ -890,13 +947,53 @@
                             });
                     }
 
-                    // Populate industry dropdown
+                    // Function to populate industry dropdown
                     function populateIndustryDropdown(industries) {
-                        let html = '<option value="">Select industry</option>';
+                        const industryList = document.querySelector('.industry-list');
+                        let html = '';
+                        
                         industries.forEach(industry => {
-                            html += `<option value="${industry.id}">${industry.name}</option>`;
+                            html += `<a class="dropdown-item" href="#" data-id="${industry.id}">${industry.name}</a>`;
                         });
-                        elements.industryFilter.innerHTML = html;
+                        
+                        industryList.innerHTML = html;
+                        
+                        // Add event listeners to industry items
+                        document.querySelectorAll('.industry-list .dropdown-item').forEach(item => {
+                            item.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                const id = this.getAttribute('data-id');
+                                const name = this.textContent;
+                                
+                                // Set the selected value in the hidden input
+                                document.getElementById('industryFilter').value = id;
+                                
+                                // Update the button text
+                                document.querySelector('.industry-selection-text').textContent = name;
+                                
+                                // Close the dropdown
+                                const dropdownMenu = this.closest('.dropdown-menu');
+                                const dropdownToggle = document.getElementById('industryDropdownButton');
+                                if (dropdownMenu && dropdownToggle) {
+                                    bootstrap.Dropdown.getInstance(dropdownToggle).hide();
+                                }
+                            });
+                        });
+                        
+                        // Add event listener to search input
+                        const searchInput = document.getElementById('industrySearchInput');
+                        searchInput.addEventListener('input', function() {
+                            const searchTerm = this.value.toLowerCase().trim();
+                            
+                            document.querySelectorAll('.industry-list .dropdown-item').forEach(item => {
+                                const industryName = item.textContent.toLowerCase();
+                                if (industryName.includes(searchTerm)) {
+                                    item.style.display = 'block';
+                                } else {
+                                    item.style.display = 'none';
+                                }
+                            });
+                        });
                     }
 
                     // Update filters in state
@@ -904,7 +1001,7 @@
                         state.apollo.filters = {
                             jobTitle: elements.jobTitleFilter.value.trim(),
                             region: elements.regionFilter.value.trim(),
-                            industry: elements.industryFilter.value,
+                            industry: document.getElementById('industryFilter').value,
                             keywords: elements.keywordsFilter.value.trim()
                         };
                         // Reset to first page when filters change

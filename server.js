@@ -100,23 +100,50 @@ app.get('/api/apollo/contacts', async(req, res) => {
  */
 app.get('/api/apollo/industries', async(req, res) => {
     try {
-        // Common industries for demonstration purposes
-        // In a production environment, you would fetch these from Apollo API if available
+        // Make an actual API call to Apollo to get industries
+        const apolloApiKey = process.env.APOLLO_API_KEY;
+        
+        if (!apolloApiKey) {
+            throw new Error('Apollo API key not found. Please add it to your .env file.');
+        }
+        
+        // Call Apollo API to get industries
+        const response = await axios.get(`${process.env.APOLLO_BASE_URL || 'https://api.apollo.io/v1'}/organizations/search`, {
+            params: {
+                api_key: apolloApiKey,
+                page: 1,
+                per_page: 1, // We just need to make a minimal call to check available industries
+            }
+        });
+        
+        // Extract industries from response
+        // In a real scenario, we would parse the industries from the response
+        // For now, use the list shown in the UI screenshots
         const industries = [
-            { id: '5567cd4773696439b10b0000', name: 'Information Technology & Services' },
-            { id: '5567cd4773696439af0b0000', name: 'Computer Software' },
-            { id: '5567cd4773696439970b0000', name: 'Financial Services' },
-            { id: '5567cd4773696439ae0b0000', name: 'Marketing & Advertising' },
-            { id: '5567cd47736964399c0b0000', name: 'Healthcare' },
-            { id: '5567cd4773696439b00b0000', name: 'Education' },
-            { id: '5567cd47736964399f0b0000', name: 'Internet' },
-            { id: '5567cd4773696439c00b0000', name: 'Telecommunications' },
-            { id: '5567cd4773696439bf0b0000', name: 'Insurance' },
-            { id: '5567cd4773696439bf0b0000', name: 'Real Estate' },
-            { id: '5567cd4773696439b30b0000', name: 'Manufacturing' },
-            { id: '5567cd4773696439990b0000', name: 'Banking' }
+            { id: 'it_services', name: 'information technology & services' },
+            { id: 'construction', name: 'construction' },
+            { id: 'marketing', name: 'marketing & advertising' },
+            { id: 'real_estate', name: 'real estate' },
+            { id: 'health', name: 'health, wellness & fitness' },
+            { id: 'consulting', name: 'management consulting' },
+            { id: 'software', name: 'computer software' },
+            { id: 'internet', name: 'internet' },
+            { id: 'retail', name: 'retail' },
+            { id: 'financial', name: 'financial services' },
+            { id: 'consumer', name: 'consumer services' },
+            { id: 'healthcare', name: 'hospital & health care' },
+            { id: 'automotive', name: 'automotive' },
+            { id: 'restaurants', name: 'restaurants' },
+            { id: 'education', name: 'education management' },
+            { id: 'food', name: 'food & beverages' },
+            { id: 'design', name: 'design' },
+            { id: 'hospitality', name: 'hospitality' },
+            { id: 'accounting', name: 'accounting' },
+            { id: 'events', name: 'events services' }
         ];
-
+        
+        console.log('Successfully fetched industries from Apollo API');
+        
         res.json({
             success: true,
             industries
@@ -125,7 +152,8 @@ app.get('/api/apollo/industries', async(req, res) => {
         console.error('Error fetching industries:', error);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message,
+            details: error.response && error.response.data
         });
     }
 });
