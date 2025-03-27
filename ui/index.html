@@ -1008,6 +1008,33 @@
                         state.apollo.page = 1;
                     }
 
+                    // Show notification message to user
+                    function showNotification(message, type = 'info') {
+                        // Remove any existing notifications
+                        const existingNotifications = document.querySelectorAll('.alert-notification');
+                        existingNotifications.forEach(notification => notification.remove());
+
+                        // Create notification element
+                        const notification = document.createElement('div');
+                        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3 alert-notification`;
+                        notification.style.zIndex = '2000';
+                        notification.innerHTML = `
+                            ${message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        `;
+
+                        // Add to document
+                        document.body.appendChild(notification);
+
+                        // Automatically remove after 5 seconds
+                        setTimeout(() => {
+                            if (notification && notification.parentNode) {
+                                notification.classList.remove('show');
+                                setTimeout(() => notification.remove(), 150);
+                            }
+                        }, 5000);
+                    }
+
                     // Reveal contact information (email or phone)
                     function revealSelectedContactInfo(type) {
                         if (state.apollo.selectedIds.size === 0) {
