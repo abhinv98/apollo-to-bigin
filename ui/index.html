@@ -1094,6 +1094,12 @@
                         renderApolloContacts(state.apollo.contacts);
                         
                         showNotification(`Successfully revealed ${type === 'email' ? 'emails' : 'phone numbers'} for ${data.contacts.length} contact(s)`, 'success');
+                        
+                        // If this was a phone reveal, start polling for webhook updates
+                        if (type === 'phone') {
+                            showNotification('Phone numbers requested. Apollo will deliver them via webhook shortly.', 'info');
+                            startPollingForPhones();
+                        }
                     } else {
                         throw new Error(data.error || 'Failed to reveal contact information');
                     }
@@ -1413,6 +1419,84 @@
                         }
                     });
                 });
+                
+                // Start polling for phone updates if there are selected contacts
+                if (state.apollo.revealedPhones.size > 0) {
+                    startPollingForPhones();
+                }
+            }
+
+            // Poll for phone updates from webhook
+            let phonePollingInterval = null;
+            function startPollingForPhones() {
+                // Clear any existing polling interval
+                if (phonePollingInterval) {
+                    clearInterval(phonePollingInterval);
+                }
+                
+                // Don't start polling if there are no phones to poll for
+                if (state.apollo.revealedPhones.size === 0) {
+                    return;
+                }
+                
+                console.log('Starting to poll for webhook phone updates...');
+                
+                // Poll every 10 seconds
+                phonePollingInterval = setInterval(checkForPhoneUpdates, 10000);
+                
+                // Also check immediately
+                checkForPhoneUpdates();
+            }
+
+            // Function to check for phone updates from the webhook
+            function checkForPhoneUpdates() {
+                // Get the IDs of contacts with revealed phones
+                const contactIds = Array.from(state.apollo.revealedPhones);
+                
+                if (contactIds.length === 0) {
+                    return;
+                }
+                
+                // Call the API to check for stored phones
+                fetch(`/api/apollo/stored-phones?contactIds=${contactIds.join(',')}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch phone updates');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success && data.phones) {
+                            let phoneUpdates = 0;
+                            
+                            // Update contacts with received phone numbers
+                            Object.entries(data.phones).forEach(([id, phone]) => {
+                                const contactIndex = state.apollo.contacts.findIndex(c => c.id === id);
+                                
+                                if (contactIndex !== -1) {
+                                    // Update the contact with the received phone
+                                    state.apollo.contacts[contactIndex].mobile_phone = phone;
+                                    phoneUpdates++;
+                                }
+                            });
+                            
+                            // If we received updates, re-render the contacts list
+                            if (phoneUpdates > 0) {
+                                console.log(`Updated ${phoneUpdates} contact(s) with phone numbers from webhook`);
+                                renderApolloContacts(state.apollo.contacts);
+                                showNotification(`Received ${phoneUpdates} phone number(s) from Apollo`, 'success');
+                                
+                                // If we've received all the updates, stop polling
+                                if (phoneUpdates >= state.apollo.revealedPhones.size) {
+                                    clearInterval(phonePollingInterval);
+                                    phonePollingInterval = null;
+                                }
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking for phone updates:', error);
+                    });
             }
 
             // Render Bigin contacts in table

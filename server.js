@@ -19,6 +19,43 @@ const fieldMapping = require('./field-mapping');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Simple in-memory storage for webhook received phone numbers
+// In a production app, this would be stored in a database
+const phoneStore = {
+    contacts: new Map(), // Map of contact IDs to phone numbers
+    lastUpdated: new Map(), // Map of contact IDs to timestamps
+    
+    // Add or update a phone number
+    addPhone(contactId, phone) {
+        this.contacts.set(contactId, phone);
+        this.lastUpdated.set(contactId, Date.now());
+        console.log(`Stored phone for contact ${contactId}: ${phone.substring(0, 3)}***`);
+    },
+    
+    // Get a phone number
+    getPhone(contactId) {
+        return this.contacts.get(contactId);
+    },
+    
+    // Check if we have a phone for this contact
+    hasPhone(contactId) {
+        return this.contacts.has(contactId);
+    },
+    
+    // Get all stored phones
+    getAllPhones() {
+        const result = [];
+        this.contacts.forEach((phone, id) => {
+            result.push({
+                id,
+                phone,
+                lastUpdated: this.lastUpdated.get(id)
+            });
+        });
+        return result;
+    }
+};
+
 // Middleware
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'ui')));
@@ -230,7 +267,11 @@ app.post('/api/apollo/reveal', async(req, res) => {
                     if (type === 'email') {
                         matchParams.reveal_personal_emails = true;
                     } else if (type === 'phone') {
+                        // For phone reveals, we need a webhook URL
                         matchParams.reveal_phone_number = true;
+                        // Use the publicly accessible Vercel URL for webhook callbacks
+                        matchParams.webhook_url = 'https://apollo-to-bigin.vercel.app/api/apollo/phone-webhook';
+                        console.log(`Using webhook URL: ${matchParams.webhook_url}`);
                     }
                     
                     console.log(`Revealing ${type} for ${contact.first_name} ${contact.last_name} at ${matchParams.organization_name}...`);
@@ -268,7 +309,8 @@ app.post('/api/apollo/reveal', async(req, res) => {
                             console.log(`Email not available for ${contact.id}, using fallback`);
                         }
                     } else if (type === 'phone') {
-                        // For phone numbers, try different sources in order
+                        // For phone numbers, initially use organization phone
+                        // The webhook will provide actual phone numbers later
                         if (revealedPerson.phone_number) {
                             revealedContact.mobile_phone = revealedPerson.phone_number;
                             console.log(`Using direct phone number for ${contact.id}: ${revealedContact.mobile_phone.substring(0, 3)}***`);
@@ -283,6 +325,9 @@ app.post('/api/apollo/reveal', async(req, res) => {
                             revealedContact.mobile_phone = '+10000000000';
                             console.log(`Phone not available for ${contact.id}, using fallback`);
                         }
+                        
+                        // Add a message that webhook will deliver additional phone numbers
+                        revealedContact.phone_message = 'Additional phone numbers will be delivered via webhook';
                     }
                     
                     return revealedContact;
@@ -304,7 +349,7 @@ app.post('/api/apollo/reveal', async(req, res) => {
         res.json({
             success: true,
             contacts: revealedContacts,
-            message: `Successfully revealed ${type} for ${revealedContacts.length} contact(s)`
+            message: `Successfully revealed ${type} for ${revealedContacts.length} contact(s)${type === 'phone' ? '. Additional phone data will be delivered via webhook.' : ''}`
         });
     } catch (error) {
         console.error(`Error revealing ${type}:`, error);
@@ -619,6 +664,112 @@ app.get('/api/bigin/status', async(req, res) => {
             connected: false,
             error: error.message,
             details: error.response && error.response.data
+        });
+    }
+});
+
+/**
+ * Webhook endpoint for receiving phone data from Apollo.io
+ */
+app.post('/api/apollo/phone-webhook', async(req, res) => {
+    try {
+        console.log('Received webhook callback from Apollo with phone data');
+        console.log('Webhook payload:', JSON.stringify(req.body, null, 2));
+        
+        const { people } = req.body;
+        
+        if (!people || !Array.isArray(people)) {
+            console.warn('Invalid webhook payload - missing people array');
+            // Still return 200 to prevent Apollo from retrying
+            return res.status(200).json({
+                success: false,
+                error: 'Invalid payload format'
+            });
+        }
+        
+        console.log(`Processing phone data for ${people.length} contacts`);
+        
+        // Process each person in the webhook data
+        const processedContacts = people.map(person => {
+            if (!person.phone_numbers || !person.phone_numbers.length) {
+                console.log(`No phone numbers found for contact ${person.id}`);
+                return {
+                    id: person.id,
+                    status: 'no_phone_numbers'
+                };
+            }
+            
+            // Get the best phone number (usually the first one with highest confidence)
+            const bestPhone = person.phone_numbers[0];
+            
+            // Store the phone number in our phoneStore
+            phoneStore.addPhone(person.id, bestPhone.raw_number);
+            
+            console.log(`Found phone number for contact ${person.id}: ${bestPhone.raw_number.substring(0, 3)}***`);
+            
+            return {
+                id: person.id,
+                status: 'success',
+                phone: bestPhone.raw_number,
+                sanitized_phone: bestPhone.sanitized_number,
+                confidence: bestPhone.confidence_cd
+            };
+        });
+        
+        // Return success to acknowledge receipt
+        res.status(200).json({
+            success: true,
+            message: 'Phone data received successfully',
+            processed: processedContacts.length
+        });
+    } catch (error) {
+        console.error('Error processing Apollo phone webhook:', error);
+        // Always return 200 even on error to prevent Apollo from retrying
+        res.status(200).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * Get stored phone numbers from webhook callbacks
+ */
+app.get('/api/apollo/stored-phones', (req, res) => {
+    try {
+        const { contactIds } = req.query;
+        
+        // If specific contact IDs are requested
+        if (contactIds) {
+            // Parse the comma-separated list of IDs
+            const ids = contactIds.split(',');
+            const phones = {};
+            
+            ids.forEach(id => {
+                if (phoneStore.hasPhone(id)) {
+                    phones[id] = phoneStore.getPhone(id);
+                }
+            });
+            
+            return res.json({
+                success: true,
+                phones
+            });
+        }
+        
+        // Otherwise return all stored phones
+        const allPhones = phoneStore.getAllPhones();
+        
+        res.json({
+            success: true,
+            count: allPhones.length,
+            phones: allPhones
+        });
+    } catch (error) {
+        console.error('Error retrieving stored phones:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
         });
     }
 });
