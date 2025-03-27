@@ -996,15 +996,26 @@
                         });
                     }
 
-                    // Update filters in state
+                    // Update filters based on UI inputs
                     function updateFilters() {
+                        // Get values from input fields
+                        const jobTitle = elements.jobTitleFilter.value.trim();
+                        const region = elements.regionFilter.value.trim();
+                        const industry = document.getElementById('industryFilter').value;
+                        const keywords = elements.keywordsFilter.value.trim();
+
+                        // Log filter values for debugging
+                        console.log('Updating filters:', { jobTitle, region, industry, keywords });
+
+                        // Update state
                         state.apollo.filters = {
-                            jobTitle: elements.jobTitleFilter.value.trim(),
-                            region: elements.regionFilter.value.trim(),
-                            industry: document.getElementById('industryFilter').value,
-                            keywords: elements.keywordsFilter.value.trim()
+                            jobTitle,
+                            region,
+                            industry,
+                            keywords
                         };
-                        // Reset to first page when filters change
+
+                        // Reset page to 1 when filters change
                         state.apollo.page = 1;
                     }
 
@@ -1330,6 +1341,15 @@
                                         ? contact.organization.name 
                                         : contact.organization_name || '';
 
+                                    // Get title properly from the correct field
+                                    const title = contact.title || '';
+
+                                    // Get location information
+                                    const city = contact.city || '';
+                                    const state = contact.state || '';
+                                    const country = contact.country || '';
+                                    const location = [city, state, country].filter(Boolean).join(', ');
+
                                     html += `
                         <tr class="contact-row ${isSelected ? 'selected' : ''}" data-id="${contact.id}">
                             <td class="col-checkbox">
@@ -1340,7 +1360,7 @@
                             <td class="col-name cell-text-primary">${contact.last_name || ''}</td>
                             <td class="col-email">${displayEmail}</td>
                             <td class="col-title">
-                                ${contact.title ? `<span class="title-badge">${contact.title}</span>` : ''}
+                                ${title ? `<span class="title-badge">${title}</span>` : ''}
                             </td>
                             <td class="col-org">
                                 ${orgName ? `<span class="company-badge">${orgName}</span>` : ''}
@@ -1348,10 +1368,10 @@
                             <td class="col-phone cell-text-secondary">${contact.phone || contact.phone_number || ''}</td>
                             <td class="col-phone cell-text-secondary">${displayPhone}</td>
                             <td>${contact.seniority || ''}</td>
-                            <td>${contact.location || ''}</td>
-                            <td>${contact.city || ''}</td>
-                            <td>${contact.state || ''}</td>
-                            <td>${contact.country || ''}</td>
+                            <td>${location || ''}</td>
+                            <td>${city || ''}</td>
+                            <td>${state || ''}</td>
+                            <td>${country || ''}</td>
                             <td class="col-status">
                                 ${isSynced ? '<span class="badge synced-badge">Synced to Bigin</span>' : ''}
                             </td>

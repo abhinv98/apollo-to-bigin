@@ -58,8 +58,16 @@ async function searchApolloContacts(searchParams = {}) {
             ...searchParams
         };
 
-        // Call Apollo API
+        console.log('Sending Apollo API request with params:', JSON.stringify(params, null, 2));
+
+        // Call Apollo API for person search
         const response = await axios.post(`${APOLLO_BASE_URL}/mixed_people/search`, params);
+
+        // Log response status and summary for debugging
+        console.log(`Apollo API response status: ${response.status}`);
+        if (response.data && response.data.people) {
+            console.log(`Retrieved ${response.data.people.length} contacts from Apollo`);
+        }
 
         // If people data is available, return it
         if (response.data && response.data.people) {

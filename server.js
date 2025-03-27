@@ -53,28 +53,28 @@ app.get('/api/apollo/contacts', async(req, res) => {
 
         // Add filters if provided
         if (jobTitle) {
-            searchParams.q_titles = [jobTitle];
+            // Use person_titles instead of q_titles for job title filtering
+            // This should be an array of strings according to Apollo API docs
+            searchParams.person_titles = [jobTitle];
+            console.log(`Job title filter applied: ${jobTitle}`);
         }
 
         if (region) {
-            // For region, we have three possibilities:
-            // 1. Two letter country code (e.g., US, IN)
-            // 2. Country name (e.g., India, United States)
-            // 3. City or state name
-            
+            // For region filtering, use person_locations for personal location
+            // or organization_locations for company headquarters
             if (region.length === 2 && region === region.toUpperCase()) {
                 // If region looks like a country code (e.g., US, UK)
-                searchParams.q_country_codes = [region];
+                searchParams.person_locations = [`${region}`];
             } else if (['United States', 'India', 'China', 'Japan', 'Germany', 'France', 'UK', 
                         'Canada', 'Australia', 'Brazil', 'Russia'].includes(region)) {
                 // If it's a recognized country name
-                searchParams.q_countries = [region];
+                searchParams.person_locations = [`${region}`];
             } else {
                 // Otherwise treat as a location name (state, city)
-                searchParams.q_locations = [region];
+                searchParams.person_locations = [`${region}`];
             }
             
-            console.log(`Region filter applied: ${region} → ${Object.keys(searchParams).find(k => k.startsWith('q_') && searchParams[k].includes(region))}`);
+            console.log(`Region filter applied: ${region} → person_locations`);
         }
 
         if (industry) {
@@ -82,6 +82,7 @@ app.get('/api/apollo/contacts', async(req, res) => {
         }
 
         if (keywords) {
+            // Apollo API supports keyword search with q_keywords
             searchParams.q_keywords = keywords;
         }
 
@@ -218,14 +219,24 @@ app.post('/api/apollo/reveal', async(req, res) => {
         const revealedContacts = await Promise.all(
             validContacts.map(async (contact) => {
                 try {
-                    // Use people/match endpoint to reveal email
-                    const response = await axios.post('https://api.apollo.io/v1/people/match', {
+                    const matchParams = {
                         api_key: process.env.APOLLO_API_KEY,
                         first_name: contact.first_name,
                         last_name: contact.last_name,
                         organization_name: contact.organization ? contact.organization.name : '',
-                        email: contact.email || ''
-                    });
+                    };
+                    
+                    // Add the appropriate reveal parameter based on the type
+                    if (type === 'email') {
+                        matchParams.reveal_personal_emails = true;
+                    } else if (type === 'phone') {
+                        matchParams.reveal_phone_number = true;
+                    }
+                    
+                    console.log(`Revealing ${type} for ${contact.first_name} ${contact.last_name} at ${matchParams.organization_name}...`);
+                    
+                    // Use people/match endpoint to reveal information
+                    const response = await axios.post('https://api.apollo.io/v1/people/match', matchParams);
 
                     if (!response.data || !response.data.person) {
                         console.warn(`No person data returned from Apollo API for contact ${contact.id}`);
@@ -233,7 +244,7 @@ app.post('/api/apollo/reveal', async(req, res) => {
                             id: contact.id,
                             // Provide fallback data for UI display
                             [type === 'email' ? 'email' : 'mobile_phone']: type === 'email' ? 
-                                'api.limit.reached@example.com' : '+10000000000'
+                                'no.match@example.com' : '+10000000000'
                         };
                     }
 
@@ -245,25 +256,30 @@ app.post('/api/apollo/reveal', async(req, res) => {
                     };
                     
                     // Add email or phone based on the type
-                    if (type === 'email' && revealedPerson.email) {
-                        revealedContact.email = revealedPerson.email;
-                        console.log(`Successfully revealed email for ${contact.id}: ${revealedContact.email.substring(0, 3)}***`);
-                    } else if (type === 'phone') {
-                        // For phone numbers, try to get from organization first
-                        if (revealedPerson.organization && revealedPerson.organization.phone) {
-                            revealedContact.mobile_phone = revealedPerson.organization.phone;
-                            console.log(`Using organization phone for ${contact.id}: ${revealedContact.mobile_phone.substring(0, 3)}***`);
+                    if (type === 'email') {
+                        if (revealedPerson.email) {
+                            revealedContact.email = revealedPerson.email;
+                            console.log(`Successfully revealed email for ${contact.id}: ${revealedContact.email.substring(0, 3)}***`);
+                        } else if (revealedPerson.personal_emails && revealedPerson.personal_emails.length > 0) {
+                            revealedContact.email = revealedPerson.personal_emails[0];
+                            console.log(`Successfully revealed personal email for ${contact.id}: ${revealedContact.email.substring(0, 3)}***`);
                         } else {
-                            // Fallback to a standard format
-                            revealedContact.mobile_phone = '+10000000000';
-                            console.log(`Phone not available for ${contact.id}, using fallback`);
-                        }
-                    } else {
-                        // If the requested field isn't available, provide a fallback
-                        if (type === 'email') {
                             revealedContact.email = 'not.available@example.com';
                             console.log(`Email not available for ${contact.id}, using fallback`);
+                        }
+                    } else if (type === 'phone') {
+                        // For phone numbers, try different sources in order
+                        if (revealedPerson.phone_number) {
+                            revealedContact.mobile_phone = revealedPerson.phone_number;
+                            console.log(`Using direct phone number for ${contact.id}: ${revealedContact.mobile_phone.substring(0, 3)}***`);
+                        } else if (revealedPerson.organization && revealedPerson.organization.phone) {
+                            revealedContact.mobile_phone = revealedPerson.organization.phone;
+                            console.log(`Using organization phone for ${contact.id}: ${revealedContact.mobile_phone.substring(0, 3)}***`);
+                        } else if (revealedPerson.mobile_phone) {
+                            revealedContact.mobile_phone = revealedPerson.mobile_phone;
+                            console.log(`Using mobile phone for ${contact.id}: ${revealedContact.mobile_phone.substring(0, 3)}***`);
                         } else {
+                            // Fallback
                             revealedContact.mobile_phone = '+10000000000';
                             console.log(`Phone not available for ${contact.id}, using fallback`);
                         }
