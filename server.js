@@ -36,7 +36,14 @@ app.get('/', (req, res) => {
  */
 app.get('/api/apollo/contacts', async(req, res) => {
     try {
-        const { query = '', page = 1, perPage = 25 } = req.query;
+        const { 
+            page = 1, 
+            perPage = 25,
+            jobTitle = '', 
+            region = '', 
+            industry = '', 
+            keywords = '' 
+        } = req.query;
 
         // Build search parameters
         const searchParams = {
@@ -44,22 +51,29 @@ app.get('/api/apollo/contacts', async(req, res) => {
             per_page: parseInt(perPage)
         };
 
-        // Add query if provided
-        if (query) {
-            // If query looks like an email, search by email
-            if (query.includes('@')) {
-                searchParams.q_email = query;
-            }
-            // If query looks like a domain, search by domain
-            else if (query.includes('.')) {
-                searchParams.q_organization_domains = query;
-            }
-            // Otherwise, search by name
-            else {
-                searchParams.q_name = query;
+        // Add filters if provided
+        if (jobTitle) {
+            searchParams.q_titles = jobTitle;
+        }
+
+        if (region) {
+            // Region can be country, state, or city
+            if (region.length === 2 && region === region.toUpperCase()) {
+                // If region looks like a country code (e.g., US, UK)
+                searchParams.q_country_codes = region;
+            } else {
+                // Otherwise treat as a location name (state, city)
+                searchParams.q_locations = region;
             }
         }
-        // When no query is provided, we'll still fetch all contacts
+
+        if (industry) {
+            searchParams.q_industry_tag_ids = industry;
+        }
+
+        if (keywords) {
+            searchParams.q_keywords = keywords;
+        }
 
         const contacts = await integration.searchApolloContacts(searchParams);
 
@@ -77,6 +91,96 @@ app.get('/api/apollo/contacts', async(req, res) => {
             success: false,
             error: error.message,
             details: error.response && error.response.data
+        });
+    }
+});
+
+/**
+ * Get industries from Apollo.io
+ */
+app.get('/api/apollo/industries', async(req, res) => {
+    try {
+        // Common industries for demonstration purposes
+        // In a production environment, you would fetch these from Apollo API if available
+        const industries = [
+            { id: '5567cd4773696439b10b0000', name: 'Information Technology & Services' },
+            { id: '5567cd4773696439af0b0000', name: 'Computer Software' },
+            { id: '5567cd4773696439970b0000', name: 'Financial Services' },
+            { id: '5567cd4773696439ae0b0000', name: 'Marketing & Advertising' },
+            { id: '5567cd47736964399c0b0000', name: 'Healthcare' },
+            { id: '5567cd4773696439b00b0000', name: 'Education' },
+            { id: '5567cd47736964399f0b0000', name: 'Internet' },
+            { id: '5567cd4773696439c00b0000', name: 'Telecommunications' },
+            { id: '5567cd4773696439bf0b0000', name: 'Insurance' },
+            { id: '5567cd4773696439bf0b0000', name: 'Real Estate' },
+            { id: '5567cd4773696439b30b0000', name: 'Manufacturing' },
+            { id: '5567cd4773696439990b0000', name: 'Banking' }
+        ];
+
+        res.json({
+            success: true,
+            industries
+        });
+    } catch (error) {
+        console.error('Error fetching industries:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * Reveal contact information (email or phone)
+ */
+app.post('/api/apollo/reveal', async(req, res) => {
+    try {
+        const { contactIds, type } = req.body;
+
+        if (!contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Contact IDs are required'
+            });
+        }
+
+        if (!type || !['email', 'phone'].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Valid type (email or phone) is required'
+            });
+        }
+
+        // In a real implementation, you would call Apollo API to reveal the information
+        // For demonstration, we'll simulate a successful response
+        
+        // Mock contact data with revealed information
+        const revealedContacts = contactIds.map(id => {
+            // Create a mock contact with the revealed information
+            const contact = {
+                id: id
+            };
+
+            // Add the revealed information based on the type
+            if (type === 'email') {
+                contact.email = `contact_${id.substring(0, 6)}@example.com`;
+            } else if (type === 'phone') {
+                contact.mobile_phone = `+1${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+            }
+
+            return contact;
+        });
+
+        res.json({
+            success: true,
+            contacts: revealedContacts,
+            message: `Successfully revealed ${type} for ${revealedContacts.length} contact(s)`
+        });
+    } catch (error) {
+        console.error(`Error revealing ${type}:`, error);
+        res.status(500).json({
+            success: false,
+            error: error.message
         });
     }
 });

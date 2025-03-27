@@ -383,6 +383,36 @@
         .table-responsive::-webkit-scrollbar-thumb:hover {
             background: #bdc1c6;
         }
+        
+        /* Masked content styling */
+        .badge.bg-secondary {
+            font-size: 10px;
+            padding: 2px 5px;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+        
+        /* Filter card styling */
+        .card-header {
+            font-weight: 500;
+        }
+        
+        .form-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+        
+        /* Button disabled state */
+        .btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+        
+        /* Toast notifications */
+        .toast {
+            z-index: 1090;
+        }
     </style>
 </head>
 
@@ -424,13 +454,54 @@
             <!-- Apollo Contacts Tab -->
             <div class="tab-pane fade show active" id="apollo-tab-pane" role="tabpanel" tabindex="0">
                 <div class="row mb-3">
-                    <div class="col-md-6">
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="apolloSearchInput" placeholder="Search contacts...">
-                            <button class="btn btn-outline-secondary" type="button" id="apolloSearchButton">
-                                <i class="bi bi-search"></i> Search
-                            </button>
+                    <div class="col-md-12">
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">Contact Filters</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3 mb-2">
+                                        <label for="jobTitleFilter" class="form-label">Job Title</label>
+                                        <input type="text" class="form-control" id="jobTitleFilter" placeholder="Enter job title">
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label for="regionFilter" class="form-label">Region</label>
+                                        <input type="text" class="form-control" id="regionFilter" placeholder="Enter region">
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label for="industryFilter" class="form-label">Industry</label>
+                                        <select class="form-select" id="industryFilter">
+                                            <option value="">Select industry</option>
+                                            <!-- Industries will be populated dynamically -->
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-2">
+                                        <label for="keywordsFilter" class="form-label">Keywords</label>
+                                        <input type="text" class="form-control" id="keywordsFilter" placeholder="Enter keywords">
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-end mt-2">
+                                    <button class="btn btn-outline-secondary me-2" id="clearFilters">
+                                        <i class="bi bi-x-circle"></i> Clear Filters
+                                    </button>
+                                    <button class="btn btn-primary" id="applyFilters">
+                                        <i class="bi bi-search"></i> Search Contacts
+                                    </button>
+                                </div>
+                            </div>
                         </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6 d-flex justify-content-end">
+                        <button class="btn btn-outline-primary me-2" id="revealEmails" disabled>
+                            <i class="bi bi-envelope"></i> Reveal Emails
+                        </button>
+                        <button class="btn btn-outline-primary me-2" id="revealPhones" disabled>
+                            <i class="bi bi-phone"></i> Reveal Mobile Numbers
+                        </button>
                     </div>
                     <div class="col-md-6 d-flex justify-content-end">
                         <button class="btn btn-primary me-2" id="syncSelected" disabled>
@@ -466,30 +537,23 @@
                                             <th class="col-org">Organization</th>
                                             <th class="col-phone">Phone</th>
                                             <th class="col-phone">Mobile Phone</th>
-                                            <th class="col-phone">Corporate Phone</th>
                                             <th>Seniority</th>
-                                            <th>Departments</th>
-                                            <th>Sub Departments</th>
-                                            <th>LinkedIn URL</th>
-                                            <th>Twitter</th>
                                             <th>Location</th>
                                             <th>City</th>
                                             <th>State</th>
                                             <th>Country</th>
-                                            <th>Account ID</th>
-                                            <th>Account Owner ID</th>
-                                            <th>Source</th>
                                             <th class="col-status">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody id="apolloContactsTable">
                                         <!-- Apollo contacts will be loaded here -->
                                         <tr>
-                                            <td colspan="22" class="text-center py-4">
-                                                <div class="spinner-border text-primary" role="status">
-                                                    <span class="visually-hidden">Loading...</span>
+                                            <td colspan="14" class="text-center py-4">
+                                                <div class="empty-state">
+                                                    <i class="bi bi-search"></i>
+                                                    <h5>Use the filters above to search for contacts</h5>
+                                                    <p>Select job title, region, industry, or keywords to get started</p>
                                                 </div>
-                                                <p class="mt-2">Loading Apollo contacts...</p>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -638,7 +702,15 @@
                             totalPages: 1,
                             searchQuery: '',
                             selectedIds: new Set(),
-                            totalContacts: 0
+                            totalContacts: 0,
+                            filters: {
+                                jobTitle: '',
+                                region: '',
+                                industry: '',
+                                keywords: ''
+                            },
+                            revealedEmails: new Set(),
+                            revealedPhones: new Set()
                         },
                         bigin: {
                             contacts: [],
@@ -648,14 +720,21 @@
                             searchQuery: '',
                             totalContacts: 0
                         },
-                        syncedContacts: new Set()
+                        syncedContacts: new Set(),
+                        industries: [] // To store industry options
                     };
 
                     // Elements
                     const elements = {
                         // Apollo tab elements
-                        apolloSearchInput: document.getElementById('apolloSearchInput'),
-                        apolloSearchButton: document.getElementById('apolloSearchButton'),
+                        jobTitleFilter: document.getElementById('jobTitleFilter'),
+                        regionFilter: document.getElementById('regionFilter'),
+                        industryFilter: document.getElementById('industryFilter'),
+                        keywordsFilter: document.getElementById('keywordsFilter'),
+                        applyFilters: document.getElementById('applyFilters'),
+                        clearFilters: document.getElementById('clearFilters'),
+                        revealEmails: document.getElementById('revealEmails'),
+                        revealPhones: document.getElementById('revealPhones'),
                         apolloContactsTable: document.getElementById('apolloContactsTable'),
                         apolloContactsCount: document.getElementById('apolloContactsCount'),
                         selectAllApollo: document.getElementById('selectAllApollo'),
@@ -685,22 +764,30 @@
                         successNotificationContainer: document.getElementById('successNotificationContainer')
                     };
 
-                    // Initialize - Load Apollo contacts immediately
-                    loadApolloContacts();
+                    // Initialize
+                    fetchIndustries();
 
                     // Event listeners
-                    elements.apolloSearchButton.addEventListener('click', function() {
-                        state.apollo.searchQuery = elements.apolloSearchInput.value.trim();
-                        state.apollo.page = 1;
+                    elements.applyFilters.addEventListener('click', function() {
+                        updateFilters();
                         loadApolloContacts();
                     });
 
-                    elements.apolloSearchInput.addEventListener('keypress', function(e) {
-                        if (e.key === 'Enter') {
-                            state.apollo.searchQuery = elements.apolloSearchInput.value.trim();
-                            state.apollo.page = 1;
-                            loadApolloContacts();
-                        }
+                    elements.clearFilters.addEventListener('click', function() {
+                        elements.jobTitleFilter.value = '';
+                        elements.regionFilter.value = '';
+                        elements.industryFilter.value = '';
+                        elements.keywordsFilter.value = '';
+                        updateFilters();
+                        loadApolloContacts();
+                    });
+
+                    elements.revealEmails.addEventListener('click', function() {
+                        revealSelectedContactInfo('email');
+                    });
+
+                    elements.revealPhones.addEventListener('click', function() {
+                        revealSelectedContactInfo('phone');
                     });
 
                     elements.biginSearchButton.addEventListener('click', function() {
@@ -772,6 +859,119 @@
                         loadBiginContacts();
                     });
 
+                    // Function to fetch industries
+                    function fetchIndustries() {
+                        fetch('/api/apollo/industries')
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Failed to fetch industries');
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.success && data.industries) {
+                                    state.industries = data.industries;
+                                    populateIndustryDropdown(data.industries);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error fetching industries:', error);
+                                // Fallback to default industries if fetch fails
+                                const defaultIndustries = [
+                                    { id: '5567cd4773696439b10b0000', name: 'Information Technology & Services' },
+                                    { id: '5567cd4773696439af0b0000', name: 'Computer Software' },
+                                    { id: '5567cd4773696439970b0000', name: 'Financial Services' },
+                                    { id: '5567cd4773696439ae0b0000', name: 'Marketing & Advertising' },
+                                    { id: '5567cd47736964399c0b0000', name: 'Healthcare' },
+                                    { id: '5567cd4773696439b00b0000', name: 'Education' }
+                                ];
+                                state.industries = defaultIndustries;
+                                populateIndustryDropdown(defaultIndustries);
+                            });
+                    }
+
+                    // Populate industry dropdown
+                    function populateIndustryDropdown(industries) {
+                        let html = '<option value="">Select industry</option>';
+                        industries.forEach(industry => {
+                            html += `<option value="${industry.id}">${industry.name}</option>`;
+                        });
+                        elements.industryFilter.innerHTML = html;
+                    }
+
+                    // Update filters in state
+                    function updateFilters() {
+                        state.apollo.filters = {
+                            jobTitle: elements.jobTitleFilter.value.trim(),
+                            region: elements.regionFilter.value.trim(),
+                            industry: elements.industryFilter.value,
+                            keywords: elements.keywordsFilter.value.trim()
+                        };
+                        // Reset to first page when filters change
+                        state.apollo.page = 1;
+                    }
+
+                    // Reveal contact information (email or phone)
+                    function revealSelectedContactInfo(type) {
+                        if (state.apollo.selectedIds.size === 0) {
+                            showNotification('Please select at least one contact', 'warning');
+                            return;
+                        }
+
+                        elements.loadingOverlay.classList.remove('d-none');
+
+                        const selectedIds = Array.from(state.apollo.selectedIds);
+                        
+                        fetch('/api/apollo/reveal', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                contactIds: selectedIds,
+                                type: type
+                            })
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Failed to reveal contact information');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.success) {
+                                // Update contacts with revealed information
+                                data.contacts.forEach(contact => {
+                                    const existingContactIndex = state.apollo.contacts.findIndex(c => c.id === contact.id);
+                                    
+                                    if (existingContactIndex !== -1) {
+                                        if (type === 'email' && contact.email) {
+                                            state.apollo.contacts[existingContactIndex].email = contact.email;
+                                            state.apollo.revealedEmails.add(contact.id);
+                                        } else if (type === 'phone' && contact.mobile_phone) {
+                                            state.apollo.contacts[existingContactIndex].mobile_phone = contact.mobile_phone;
+                                            state.apollo.revealedPhones.add(contact.id);
+                                        }
+                                    }
+                                });
+                                
+                                // Re-render contacts with updated information
+                                renderApolloContacts(state.apollo.contacts);
+                                
+                                showNotification(`Successfully revealed ${type === 'email' ? 'emails' : 'phone numbers'} for ${data.contacts.length} contact(s)`, 'success');
+                            } else {
+                                throw new Error(data.error || 'Failed to reveal contact information');
+                            }
+                        })
+                        .catch(error => {
+                            console.error(`Error revealing ${type}:`, error);
+                            showNotification(`Error revealing ${type === 'email' ? 'emails' : 'phone numbers'}: ${error.message}`, 'danger');
+                        })
+                        .finally(() => {
+                            elements.loadingOverlay.classList.add('d-none');
+                        });
+                    }
+
                     // Function to load Apollo contacts from API
                     function loadApolloContacts() {
                         elements.loadingOverlay.classList.remove('d-none');
@@ -782,9 +982,21 @@
                             perPage: state.apollo.pageSize
                         });
 
-                        // Always include an empty query if none provided to ensure we fetch all leads
-                        if (state.apollo.searchQuery) {
-                            params.append('query', state.apollo.searchQuery);
+                        // Add filters
+                        if (state.apollo.filters.jobTitle) {
+                            params.append('jobTitle', state.apollo.filters.jobTitle);
+                        }
+
+                        if (state.apollo.filters.region) {
+                            params.append('region', state.apollo.filters.region);
+                        }
+
+                        if (state.apollo.filters.industry) {
+                            params.append('industry', state.apollo.filters.industry);
+                        }
+
+                        if (state.apollo.filters.keywords) {
+                            params.append('keywords', state.apollo.filters.keywords);
                         }
 
                         // Fetch actual data from API
@@ -824,7 +1036,7 @@
                                     console.error('API error:', data.error);
                                     elements.apolloContactsTable.innerHTML = `
                                 <tr>
-                                    <td colspan="22" class="text-center py-4">
+                                    <td colspan="14" class="text-center py-4">
                                         <p class="text-danger">Error loading contacts: ${data.error}</p>
                                     </td>
                                 </tr>
@@ -838,7 +1050,7 @@
                                 if (error.message === 'rate_limit_exceeded') {
                                     elements.apolloContactsTable.innerHTML = `
                                 <tr>
-                                    <td colspan="22" class="text-center py-4">
+                                    <td colspan="14" class="text-center py-4">
                                         <div class="alert alert-warning">
                                             <i class="bi bi-exclamation-triangle-fill me-2"></i>
                                             <strong>Rate limit exceeded</strong>
@@ -850,7 +1062,7 @@
                                 } else {
                                     elements.apolloContactsTable.innerHTML = `
                                 <tr>
-                                    <td colspan="22" class="text-center py-4">
+                                    <td colspan="14" class="text-center py-4">
                                         <p class="text-danger">Error: ${error.message}</p>
                                     </td>
                                 </tr>
@@ -957,7 +1169,7 @@
                         if (contacts.length === 0) {
                             elements.apolloContactsTable.innerHTML = `
                         <tr>
-                            <td colspan="22" class="text-center py-4">
+                            <td colspan="14" class="text-center py-4">
                                 <div class="empty-state">
                                     <i class="bi bi-search"></i>
                                     <h5>No contacts found</h5>
@@ -973,6 +1185,21 @@
                         contacts.forEach(contact => {
                                     const isSelected = state.apollo.selectedIds.has(contact.id);
                                     const isSynced = state.syncedContacts.has(contact.id);
+                                    const isEmailRevealed = state.apollo.revealedEmails.has(contact.id);
+                                    const isPhoneRevealed = state.apollo.revealedPhones.has(contact.id);
+
+                                    // Format email and phone for display (masked if not revealed)
+                                    const displayEmail = contact.email && isEmailRevealed 
+                                        ? contact.email 
+                                        : contact.email 
+                                            ? '••••••@••••••.com <span class="badge bg-secondary">Click Reveal</span>' 
+                                            : '';
+                                    
+                                    const displayPhone = contact.mobile_phone && isPhoneRevealed 
+                                        ? contact.mobile_phone 
+                                        : contact.mobile_phone 
+                                            ? '••••••••••• <span class="badge bg-secondary">Click Reveal</span>' 
+                                            : '';
 
                                     html += `
                         <tr class="contact-row ${isSelected ? 'selected' : ''}" data-id="${contact.id}">
@@ -982,7 +1209,7 @@
                             </td>
                             <td class="col-name cell-text-primary">${contact.first_name || ''}</td>
                             <td class="col-name cell-text-primary">${contact.last_name || ''}</td>
-                            <td class="col-email">${contact.email || ''}</td>
+                            <td class="col-email">${displayEmail}</td>
                             <td class="col-title">
                                 ${contact.title ? `<span class="title-badge">${contact.title}</span>` : ''}
                             </td>
@@ -990,20 +1217,12 @@
                                 ${contact.organization_name ? `<span class="company-badge">${contact.organization_name}</span>` : ''}
                             </td>
                             <td class="col-phone cell-text-secondary">${contact.phone_number || ''}</td>
-                            <td class="col-phone cell-text-secondary">${contact.mobile_phone || ''}</td>
-                            <td class="col-phone cell-text-secondary">${contact.corporate_phone || ''}</td>
+                            <td class="col-phone cell-text-secondary">${displayPhone}</td>
                             <td>${contact.seniority || ''}</td>
-                            <td>${contact.departments ? contact.departments.join(', ') : ''}</td>
-                            <td>${contact.subdepartments ? contact.subdepartments.join(', ') : ''}</td>
-                            <td>${contact.linkedin_url || ''}</td>
-                            <td>${contact.twitter_url || ''}</td>
                             <td>${contact.location || ''}</td>
                             <td>${contact.city || ''}</td>
                             <td>${contact.state || ''}</td>
                             <td>${contact.country || ''}</td>
-                            <td>${contact.account_id || ''}</td>
-                            <td>${contact.account_owner_id || ''}</td>
-                            <td>${contact.source || ''}</td>
                             <td class="col-status">
                                 ${isSynced ? '<span class="badge synced-badge">Synced to Bigin</span>' : ''}
                             </td>
@@ -1121,10 +1340,13 @@
                 updateButtonStates();
             }
 
-            // Update button states based on selection
+            // Update button states based on selections
             function updateButtonStates() {
-                elements.syncSelected.disabled = state.apollo.selectedIds.size === 0;
+                const hasSelections = state.apollo.selectedIds.size > 0;
+                elements.syncSelected.disabled = !hasSelections;
                 elements.syncAll.disabled = state.apollo.contacts.length === 0;
+                elements.revealEmails.disabled = !hasSelections;
+                elements.revealPhones.disabled = !hasSelections;
             }
 
             // Sync selected contacts to Bigin
