@@ -748,561 +748,561 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // State and elements need to be defined first
+        const state = {
+            apollo: {
+                contacts: [],
+                page: 1,
+                pageSize: 25,
+                totalPages: 1,
+                searchQuery: '',
+                selectedIds: new Set(),
+                totalContacts: 0,
+                filters: {
+                    jobTitle: '',
+                    region: '',
+                    industry: '',
+                    keywords: ''
+                },
+                revealedEmails: new Set(),
+                revealedPhones: new Set()
+            },
+            bigin: {
+                contacts: [],
+                page: 1,
+                pageSize: 25,
+                totalPages: 1,
+                searchQuery: '',
+                totalContacts: 0
+            },
+            syncedContacts: new Set(),
+            industries: [] // To store industry options
+        };
+
+        // Elements
+        const elements = {
+            // Apollo tab elements
+            jobTitleFilter: document.getElementById('jobTitleFilter'),
+            regionFilter: document.getElementById('regionFilter'),
+            industryDropdownButton: document.getElementById('industryDropdownButton'),
+            keywordsFilter: document.getElementById('keywordsFilter'),
+            applyFilters: document.getElementById('applyFilters'),
+            clearFilters: document.getElementById('clearFilters'),
+            revealEmails: document.getElementById('revealEmails'),
+            revealPhones: document.getElementById('revealPhones'),
+            apolloContactsTable: document.getElementById('apolloContactsTable'),
+            apolloContactsCount: document.getElementById('apolloContactsCount'),
+            selectAllApollo: document.getElementById('selectAllApollo'),
+            deselectAllApollo: document.getElementById('deselectAllApollo'),
+            selectAllCheckbox: document.getElementById('selectAllCheckbox'),
+            syncSelected: document.getElementById('syncSelected'),
+            syncAll: document.getElementById('syncAll'),
+            prevPageApollo: document.getElementById('prevPageApollo'),
+            nextPageApollo: document.getElementById('nextPageApollo'),
+            apolloPageInfo: document.getElementById('apolloPageInfo'),
+            apolloPageSize: document.getElementById('apolloPageSize'),
+
+            // Bigin tab elements
+            biginSearchInput: document.getElementById('biginSearchInput'),
+            biginSearchButton: document.getElementById('biginSearchButton'),
+            biginContactsTable: document.getElementById('biginContactsTable'),
+            biginContactsCount: document.getElementById('biginContactsCount'),
+            refreshBiginContacts: document.getElementById('refreshBiginContacts'),
+            prevPageBigin: document.getElementById('prevPageBigin'),
+            nextPageBigin: document.getElementById('nextPageBigin'),
+            biginPageInfo: document.getElementById('biginPageInfo'),
+            biginPageSize: document.getElementById('biginPageSize'),
+
+            // Shared elements
+            loadingOverlay: document.getElementById('loadingOverlay'),
+            syncResultsContent: document.getElementById('syncResultsContent'),
+            successNotificationContainer: document.getElementById('successNotificationContainer')
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
-                    // State management
-                    const state = {
-                        apollo: {
-                            contacts: [],
-                            page: 1,
-                            pageSize: 25,
-                            totalPages: 1,
-                            searchQuery: '',
-                            selectedIds: new Set(),
-                            totalContacts: 0,
-                            filters: {
-                                jobTitle: '',
-                                region: '',
-                                industry: '',
-                                keywords: ''
-                            },
-                            revealedEmails: new Set(),
-                            revealedPhones: new Set()
-                        },
-                        bigin: {
-                            contacts: [],
-                            page: 1,
-                            pageSize: 25,
-                            totalPages: 1,
-                            searchQuery: '',
-                            totalContacts: 0
-                        },
-                        syncedContacts: new Set(),
-                        industries: [] // To store industry options
-                    };
+            // Initialize
+            fetchIndustries();
 
-                    // Elements
-                    const elements = {
-                        // Apollo tab elements
-                        jobTitleFilter: document.getElementById('jobTitleFilter'),
-                        regionFilter: document.getElementById('regionFilter'),
-                        industryDropdownButton: document.getElementById('industryDropdownButton'),
-                        keywordsFilter: document.getElementById('keywordsFilter'),
-                        applyFilters: document.getElementById('applyFilters'),
-                        clearFilters: document.getElementById('clearFilters'),
-                        revealEmails: document.getElementById('revealEmails'),
-                        revealPhones: document.getElementById('revealPhones'),
-                        apolloContactsTable: document.getElementById('apolloContactsTable'),
-                        apolloContactsCount: document.getElementById('apolloContactsCount'),
-                        selectAllApollo: document.getElementById('selectAllApollo'),
-                        deselectAllApollo: document.getElementById('deselectAllApollo'),
-                        selectAllCheckbox: document.getElementById('selectAllCheckbox'),
-                        syncSelected: document.getElementById('syncSelected'),
-                        syncAll: document.getElementById('syncAll'),
-                        prevPageApollo: document.getElementById('prevPageApollo'),
-                        nextPageApollo: document.getElementById('nextPageApollo'),
-                        apolloPageInfo: document.getElementById('apolloPageInfo'),
-                        apolloPageSize: document.getElementById('apolloPageSize'),
+            // Event listeners
+            elements.applyFilters.addEventListener('click', function() {
+                updateFilters();
+                loadApolloContacts();
+            });
 
-                        // Bigin tab elements
-                        biginSearchInput: document.getElementById('biginSearchInput'),
-                        biginSearchButton: document.getElementById('biginSearchButton'),
-                        biginContactsTable: document.getElementById('biginContactsTable'),
-                        biginContactsCount: document.getElementById('biginContactsCount'),
-                        refreshBiginContacts: document.getElementById('refreshBiginContacts'),
-                        prevPageBigin: document.getElementById('prevPageBigin'),
-                        nextPageBigin: document.getElementById('nextPageBigin'),
-                        biginPageInfo: document.getElementById('biginPageInfo'),
-                        biginPageSize: document.getElementById('biginPageSize'),
+            elements.clearFilters.addEventListener('click', function() {
+                elements.jobTitleFilter.value = '';
+                elements.regionFilter.value = '';
+                document.getElementById('industryFilter').value = '';
+                document.querySelector('.industry-selection-text').textContent = 'Search industries...';
+                elements.keywordsFilter.value = '';
+                updateFilters();
+                loadApolloContacts();
+            });
 
-                        // Shared elements
-                        loadingOverlay: document.getElementById('loadingOverlay'),
-                        syncResultsContent: document.getElementById('syncResultsContent'),
-                        successNotificationContainer: document.getElementById('successNotificationContainer')
-                    };
+            elements.revealEmails.addEventListener('click', function() {
+                revealSelectedContactInfo('email');
+            });
 
-                    // Initialize
-                    fetchIndustries();
+            elements.revealPhones.addEventListener('click', function() {
+                revealSelectedContactInfo('phone');
+            });
 
-                    // Event listeners
-                    elements.applyFilters.addEventListener('click', function() {
-                        updateFilters();
-                        loadApolloContacts();
+            elements.biginSearchButton.addEventListener('click', function() {
+                state.bigin.searchQuery = elements.biginSearchInput.value.trim();
+                state.bigin.page = 1;
+                loadBiginContacts();
+            });
+
+            elements.biginSearchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    state.bigin.searchQuery = elements.biginSearchInput.value.trim();
+                    state.bigin.page = 1;
+                    loadBiginContacts();
+                }
+            });
+
+            elements.refreshBiginContacts.addEventListener('click', loadBiginContacts);
+
+            elements.selectAllApollo.addEventListener('click', selectAllApolloContacts);
+            elements.deselectAllApollo.addEventListener('click', deselectAllApolloContacts);
+            elements.selectAllCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    selectAllApolloContacts();
+                } else {
+                    deselectAllApolloContacts();
+                }
+            });
+
+            elements.syncSelected.addEventListener('click', syncSelectedContacts);
+            elements.syncAll.addEventListener('click', syncAllContacts);
+
+            elements.prevPageApollo.addEventListener('click', function() {
+                if (state.apollo.page > 1) {
+                    state.apollo.page--;
+                    loadApolloContacts();
+                }
+            });
+
+            elements.nextPageApollo.addEventListener('click', function() {
+                if (state.apollo.page < state.apollo.totalPages) {
+                    state.apollo.page++;
+                    loadApolloContacts();
+                }
+            });
+
+            elements.apolloPageSize.addEventListener('change', function() {
+                state.apollo.pageSize = parseInt(this.value);
+                state.apollo.page = 1;
+                loadApolloContacts();
+            });
+
+            elements.prevPageBigin.addEventListener('click', function() {
+                if (state.bigin.page > 1) {
+                    state.bigin.page--;
+                    loadBiginContacts();
+                }
+            });
+
+            elements.nextPageBigin.addEventListener('click', function() {
+                if (state.bigin.page < state.bigin.totalPages) {
+                    state.bigin.page++;
+                    loadBiginContacts();
+                }
+            });
+
+            elements.biginPageSize.addEventListener('change', function() {
+                state.bigin.pageSize = parseInt(this.value);
+                state.bigin.page = 1;
+                loadBiginContacts();
+            });
+
+            // Function to fetch industries
+            function fetchIndustries() {
+                fetch('/api/apollo/industries')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch industries');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success && data.industries) {
+                            state.industries = data.industries;
+                            populateIndustryDropdown(data.industries);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching industries:', error);
+                        // Fallback to default industries if fetch fails
+                        const defaultIndustries = [
+                            { id: '5567cd4773696439b10b0000', name: 'Information Technology & Services' },
+                            { id: '5567cd4773696439af0b0000', name: 'Computer Software' },
+                            { id: '5567cd4773696439970b0000', name: 'Financial Services' },
+                            { id: '5567cd4773696439ae0b0000', name: 'Marketing & Advertising' },
+                            { id: '5567cd47736964399c0b0000', name: 'Healthcare' },
+                            { id: '5567cd4773696439b00b0000', name: 'Education' }
+                        ];
+                        state.industries = defaultIndustries;
+                        populateIndustryDropdown(defaultIndustries);
                     });
+            }
 
-                    elements.clearFilters.addEventListener('click', function() {
-                        elements.jobTitleFilter.value = '';
-                        elements.regionFilter.value = '';
-                        document.getElementById('industryFilter').value = '';
-                        document.querySelector('.industry-selection-text').textContent = 'Search industries...';
-                        elements.keywordsFilter.value = '';
-                        updateFilters();
-                        loadApolloContacts();
-                    });
-
-                    elements.revealEmails.addEventListener('click', function() {
-                        revealSelectedContactInfo('email');
-                    });
-
-                    elements.revealPhones.addEventListener('click', function() {
-                        revealSelectedContactInfo('phone');
-                    });
-
-                    elements.biginSearchButton.addEventListener('click', function() {
-                        state.bigin.searchQuery = elements.biginSearchInput.value.trim();
-                        state.bigin.page = 1;
-                        loadBiginContacts();
-                    });
-
-                    elements.biginSearchInput.addEventListener('keypress', function(e) {
-                        if (e.key === 'Enter') {
-                            state.bigin.searchQuery = elements.biginSearchInput.value.trim();
-                            state.bigin.page = 1;
-                            loadBiginContacts();
+            // Function to populate industry dropdown
+            function populateIndustryDropdown(industries) {
+                const industryList = document.querySelector('.industry-list');
+                let html = '';
+                
+                industries.forEach(industry => {
+                    html += `<a class="dropdown-item" href="#" data-id="${industry.id}">${industry.name}</a>`;
+                });
+                
+                industryList.innerHTML = html;
+                
+                // Add event listeners to industry items
+                document.querySelectorAll('.industry-list .dropdown-item').forEach(item => {
+                    item.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const id = this.getAttribute('data-id');
+                        const name = this.textContent;
+                        
+                        // Set the selected value in the hidden input
+                        document.getElementById('industryFilter').value = id;
+                        
+                        // Update the button text
+                        document.querySelector('.industry-selection-text').textContent = name;
+                        
+                        // Close the dropdown
+                        const dropdownMenu = this.closest('.dropdown-menu');
+                        const dropdownToggle = document.getElementById('industryDropdownButton');
+                        if (dropdownMenu && dropdownToggle) {
+                            bootstrap.Dropdown.getInstance(dropdownToggle).hide();
                         }
                     });
-
-                    elements.refreshBiginContacts.addEventListener('click', loadBiginContacts);
-
-                    elements.selectAllApollo.addEventListener('click', selectAllApolloContacts);
-                    elements.deselectAllApollo.addEventListener('click', deselectAllApolloContacts);
-                    elements.selectAllCheckbox.addEventListener('change', function() {
-                        if (this.checked) {
-                            selectAllApolloContacts();
+                });
+                
+                // Add event listener to search input
+                const searchInput = document.getElementById('industrySearchInput');
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase().trim();
+                    
+                    document.querySelectorAll('.industry-list .dropdown-item').forEach(item => {
+                        const industryName = item.textContent.toLowerCase();
+                        if (industryName.includes(searchTerm)) {
+                            item.style.display = 'block';
                         } else {
-                            deselectAllApolloContacts();
+                            item.style.display = 'none';
                         }
                     });
+                });
+            }
 
-                    elements.syncSelected.addEventListener('click', syncSelectedContacts);
-                    elements.syncAll.addEventListener('click', syncAllContacts);
+            // Update filters based on UI inputs
+            function updateFilters() {
+                // Get values from input fields
+                const jobTitle = elements.jobTitleFilter.value.trim();
+                const region = elements.regionFilter.value.trim();
+                const industry = document.getElementById('industryFilter').value;
+                const keywords = elements.keywordsFilter.value.trim();
 
-                    elements.prevPageApollo.addEventListener('click', function() {
-                        if (state.apollo.page > 1) {
-                            state.apollo.page--;
-                            loadApolloContacts();
-                        }
-                    });
+                // Log filter values for debugging
+                console.log('Updating filters:', { jobTitle, region, industry, keywords });
 
-                    elements.nextPageApollo.addEventListener('click', function() {
-                        if (state.apollo.page < state.apollo.totalPages) {
-                            state.apollo.page++;
-                            loadApolloContacts();
-                        }
-                    });
+                // Update state
+                state.apollo.filters = {
+                    jobTitle,
+                    region,
+                    industry,
+                    keywords
+                };
 
-                    elements.apolloPageSize.addEventListener('change', function() {
-                        state.apollo.pageSize = parseInt(this.value);
-                        state.apollo.page = 1;
-                        loadApolloContacts();
-                    });
+                // Reset page to 1 when filters change
+                state.apollo.page = 1;
+            }
 
-                    elements.prevPageBigin.addEventListener('click', function() {
-                        if (state.bigin.page > 1) {
-                            state.bigin.page--;
-                            loadBiginContacts();
-                        }
-                    });
+            // Show notification message to user
+            function showNotification(message, type = 'info') {
+                // Remove any existing notifications
+                const existingNotifications = document.querySelectorAll('.alert-notification');
+                existingNotifications.forEach(notification => notification.remove());
 
-                    elements.nextPageBigin.addEventListener('click', function() {
-                        if (state.bigin.page < state.bigin.totalPages) {
-                            state.bigin.page++;
-                            loadBiginContacts();
-                        }
-                    });
+                // Create notification element
+                const notification = document.createElement('div');
+                notification.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3 alert-notification`;
+                notification.style.zIndex = '2000';
+                notification.innerHTML = `
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
 
-                    elements.biginPageSize.addEventListener('change', function() {
-                        state.bigin.pageSize = parseInt(this.value);
-                        state.bigin.page = 1;
-                        loadBiginContacts();
-                    });
+                // Add to document
+                document.body.appendChild(notification);
 
-                    // Function to fetch industries
-                    function fetchIndustries() {
-                        fetch('/api/apollo/industries')
-                            .then(response => {
-                                if (!response.ok) {
-                                    throw new Error('Failed to fetch industries');
-                                }
-                                return response.json();
-                            })
-                            .then(data => {
-                                if (data.success && data.industries) {
-                                    state.industries = data.industries;
-                                    populateIndustryDropdown(data.industries);
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error fetching industries:', error);
-                                // Fallback to default industries if fetch fails
-                                const defaultIndustries = [
-                                    { id: '5567cd4773696439b10b0000', name: 'Information Technology & Services' },
-                                    { id: '5567cd4773696439af0b0000', name: 'Computer Software' },
-                                    { id: '5567cd4773696439970b0000', name: 'Financial Services' },
-                                    { id: '5567cd4773696439ae0b0000', name: 'Marketing & Advertising' },
-                                    { id: '5567cd47736964399c0b0000', name: 'Healthcare' },
-                                    { id: '5567cd4773696439b00b0000', name: 'Education' }
-                                ];
-                                state.industries = defaultIndustries;
-                                populateIndustryDropdown(defaultIndustries);
-                            });
+                // Automatically remove after 5 seconds
+                setTimeout(() => {
+                    if (notification && notification.parentNode) {
+                        notification.classList.remove('show');
+                        setTimeout(() => notification.remove(), 150);
                     }
+                }, 5000);
+            }
 
-                    // Function to populate industry dropdown
-                    function populateIndustryDropdown(industries) {
-                        const industryList = document.querySelector('.industry-list');
-                        let html = '';
-                        
-                        industries.forEach(industry => {
-                            html += `<a class="dropdown-item" href="#" data-id="${industry.id}">${industry.name}</a>`;
-                        });
-                        
-                        industryList.innerHTML = html;
-                        
-                        // Add event listeners to industry items
-                        document.querySelectorAll('.industry-list .dropdown-item').forEach(item => {
-                            item.addEventListener('click', function(e) {
-                                e.preventDefault();
-                                const id = this.getAttribute('data-id');
-                                const name = this.textContent;
-                                
-                                // Set the selected value in the hidden input
-                                document.getElementById('industryFilter').value = id;
-                                
-                                // Update the button text
-                                document.querySelector('.industry-selection-text').textContent = name;
-                                
-                                // Close the dropdown
-                                const dropdownMenu = this.closest('.dropdown-menu');
-                                const dropdownToggle = document.getElementById('industryDropdownButton');
-                                if (dropdownMenu && dropdownToggle) {
-                                    bootstrap.Dropdown.getInstance(dropdownToggle).hide();
-                                }
-                            });
-                        });
-                        
-                        // Add event listener to search input
-                        const searchInput = document.getElementById('industrySearchInput');
-                        searchInput.addEventListener('input', function() {
-                            const searchTerm = this.value.toLowerCase().trim();
+            // Reveal contact information (email or phone)
+            function revealSelectedContactInfo(type) {
+                if (state.apollo.selectedIds.size === 0) {
+                    showNotification('Please select at least one contact', 'warning');
+                    return;
+                }
+
+                elements.loadingOverlay.classList.remove('d-none');
+
+                const selectedIds = Array.from(state.apollo.selectedIds);
+                
+                fetch('/api/apollo/reveal', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contactIds: selectedIds,
+                        type: type
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to reveal contact information');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Update contacts with revealed information
+                        data.contacts.forEach(contact => {
+                            const existingContactIndex = state.apollo.contacts.findIndex(c => c.id === contact.id);
                             
-                            document.querySelectorAll('.industry-list .dropdown-item').forEach(item => {
-                                const industryName = item.textContent.toLowerCase();
-                                if (industryName.includes(searchTerm)) {
-                                    item.style.display = 'block';
-                                } else {
-                                    item.style.display = 'none';
+                            if (existingContactIndex !== -1) {
+                                if (type === 'email' && contact.email) {
+                                    state.apollo.contacts[existingContactIndex].email = contact.email;
+                                    state.apollo.revealedEmails.add(contact.id);
+                                } else if (type === 'phone' && contact.mobile_phone) {
+                                    state.apollo.contacts[existingContactIndex].mobile_phone = contact.mobile_phone;
+                                    state.apollo.revealedPhones.add(contact.id);
                                 }
-                            });
-                        });
-                    }
-
-                    // Update filters based on UI inputs
-                    function updateFilters() {
-                        // Get values from input fields
-                        const jobTitle = elements.jobTitleFilter.value.trim();
-                        const region = elements.regionFilter.value.trim();
-                        const industry = document.getElementById('industryFilter').value;
-                        const keywords = elements.keywordsFilter.value.trim();
-
-                        // Log filter values for debugging
-                        console.log('Updating filters:', { jobTitle, region, industry, keywords });
-
-                        // Update state
-                        state.apollo.filters = {
-                            jobTitle,
-                            region,
-                            industry,
-                            keywords
-                        };
-
-                        // Reset page to 1 when filters change
-                        state.apollo.page = 1;
-                    }
-
-                    // Show notification message to user
-                    function showNotification(message, type = 'info') {
-                        // Remove any existing notifications
-                        const existingNotifications = document.querySelectorAll('.alert-notification');
-                        existingNotifications.forEach(notification => notification.remove());
-
-                        // Create notification element
-                        const notification = document.createElement('div');
-                        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3 alert-notification`;
-                        notification.style.zIndex = '2000';
-                        notification.innerHTML = `
-                            ${message}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        `;
-
-                        // Add to document
-                        document.body.appendChild(notification);
-
-                        // Automatically remove after 5 seconds
-                        setTimeout(() => {
-                            if (notification && notification.parentNode) {
-                                notification.classList.remove('show');
-                                setTimeout(() => notification.remove(), 150);
                             }
-                        }, 5000);
-                    }
-
-                    // Reveal contact information (email or phone)
-                    function revealSelectedContactInfo(type) {
-                        if (state.apollo.selectedIds.size === 0) {
-                            showNotification('Please select at least one contact', 'warning');
-                            return;
-                        }
-
-                        elements.loadingOverlay.classList.remove('d-none');
-
-                        const selectedIds = Array.from(state.apollo.selectedIds);
+                        });
                         
-                        fetch('/api/apollo/reveal', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                contactIds: selectedIds,
-                                type: type
-                            })
-                        })
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Failed to reveal contact information');
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.success) {
-                                // Update contacts with revealed information
-                                data.contacts.forEach(contact => {
-                                    const existingContactIndex = state.apollo.contacts.findIndex(c => c.id === contact.id);
-                                    
-                                    if (existingContactIndex !== -1) {
-                                        if (type === 'email' && contact.email) {
-                                            state.apollo.contacts[existingContactIndex].email = contact.email;
-                                            state.apollo.revealedEmails.add(contact.id);
-                                        } else if (type === 'phone' && contact.mobile_phone) {
-                                            state.apollo.contacts[existingContactIndex].mobile_phone = contact.mobile_phone;
-                                            state.apollo.revealedPhones.add(contact.id);
-                                        }
-                                    }
-                                });
-                                
-                                // Re-render contacts with updated information
-                                renderApolloContacts(state.apollo.contacts);
-                                
-                                showNotification(`Successfully revealed ${type === 'email' ? 'emails' : 'phone numbers'} for ${data.contacts.length} contact(s)`, 'success');
-                            } else {
-                                throw new Error(data.error || 'Failed to reveal contact information');
-                            }
-                        })
-                        .catch(error => {
-                            console.error(`Error revealing ${type}:`, error);
-                            showNotification(`Error revealing ${type === 'email' ? 'emails' : 'phone numbers'}: ${error.message}`, 'danger');
-                        })
-                        .finally(() => {
-                            elements.loadingOverlay.classList.add('d-none');
-                        });
+                        // Re-render contacts with updated information
+                        renderApolloContacts(state.apollo.contacts);
+                        
+                        showNotification(`Successfully revealed ${type === 'email' ? 'emails' : 'phone numbers'} for ${data.contacts.length} contact(s)`, 'success');
+                    } else {
+                        throw new Error(data.error || 'Failed to reveal contact information');
                     }
+                })
+                .catch(error => {
+                    console.error(`Error revealing ${type}:`, error);
+                    showNotification(`Error revealing ${type === 'email' ? 'emails' : 'phone numbers'}: ${error.message}`, 'danger');
+                })
+                .finally(() => {
+                    elements.loadingOverlay.classList.add('d-none');
+                });
+            }
 
-                    // Function to load Apollo contacts from API
-                    function loadApolloContacts() {
-                        elements.loadingOverlay.classList.remove('d-none');
+            // Function to load Apollo contacts from API
+            function loadApolloContacts() {
+                elements.loadingOverlay.classList.remove('d-none');
 
-                        // Build query parameters
-                        const params = new URLSearchParams({
-                            page: state.apollo.page,
-                            perPage: state.apollo.pageSize
-                        });
+                // Build query parameters
+                const params = new URLSearchParams({
+                    page: state.apollo.page,
+                    perPage: state.apollo.pageSize
+                });
 
-                        // Add filters
-                        if (state.apollo.filters.jobTitle) {
-                            params.append('jobTitle', state.apollo.filters.jobTitle);
+                // Add filters
+                if (state.apollo.filters.jobTitle) {
+                    params.append('jobTitle', state.apollo.filters.jobTitle);
+                }
+
+                if (state.apollo.filters.region) {
+                    params.append('region', state.apollo.filters.region);
+                }
+
+                if (state.apollo.filters.industry) {
+                    params.append('industry', state.apollo.filters.industry);
+                }
+
+                if (state.apollo.filters.keywords) {
+                    params.append('keywords', state.apollo.filters.keywords);
+                }
+
+                // Fetch actual data from API
+                fetch(`/api/apollo/contacts?${params.toString()}`)
+                    .then(response => {
+                        if (response.status === 429) {
+                            throw new Error('rate_limit_exceeded');
                         }
-
-                        if (state.apollo.filters.region) {
-                            params.append('region', state.apollo.filters.region);
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch Apollo contacts');
                         }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            // Update state with API response data
+                            state.apollo.contacts = data.contacts;
+                            state.apollo.page = data.page;
+                            state.apollo.totalContacts = data.totalContacts;
+                            state.apollo.totalPages = Math.ceil(data.totalContacts / state.apollo.pageSize);
 
-                        if (state.apollo.filters.industry) {
-                            params.append('industry', state.apollo.filters.industry);
-                        }
+                            // Render contacts
+                            renderApolloContacts(state.apollo.contacts);
 
-                        if (state.apollo.filters.keywords) {
-                            params.append('keywords', state.apollo.filters.keywords);
-                        }
+                            // Update page controls
+                            elements.apolloPageInfo.textContent = `Page ${state.apollo.page} of ${state.apollo.totalPages || 1}`;
+                            elements.prevPageApollo.disabled = state.apollo.page <= 1;
+                            elements.nextPageApollo.disabled = state.apollo.page >= state.apollo.totalPages;
 
-                        // Fetch actual data from API
-                        fetch(`/api/apollo/contacts?${params.toString()}`)
-                            .then(response => {
-                                if (response.status === 429) {
-                                    throw new Error('rate_limit_exceeded');
-                                }
-                                if (!response.ok) {
-                                    throw new Error('Failed to fetch Apollo contacts');
-                                }
-                                return response.json();
-                            })
-                            .then(data => {
-                                if (data.success) {
-                                    // Update state with API response data
-                                    state.apollo.contacts = data.contacts;
-                                    state.apollo.page = data.page;
-                                    state.apollo.totalContacts = data.totalContacts;
-                                    state.apollo.totalPages = Math.ceil(data.totalContacts / state.apollo.pageSize);
+                            // Update counts
+                            elements.apolloContactsCount.textContent = `Apollo Contacts (${state.apollo.totalContacts})`;
 
-                                    // Render contacts
-                                    renderApolloContacts(state.apollo.contacts);
-
-                                    // Update page controls
-                                    elements.apolloPageInfo.textContent = `Page ${state.apollo.page} of ${state.apollo.totalPages || 1}`;
-                                    elements.prevPageApollo.disabled = state.apollo.page <= 1;
-                                    elements.nextPageApollo.disabled = state.apollo.page >= state.apollo.totalPages;
-
-                                    // Update counts
-                                    elements.apolloContactsCount.textContent = `Apollo Contacts (${state.apollo.totalContacts})`;
-
-                                    // Update button states
-                                    updateButtonStates();
-                                } else {
-                                    // Handle API error
-                                    console.error('API error:', data.error);
-                                    elements.apolloContactsTable.innerHTML = `
-                                <tr>
-                                    <td colspan="14" class="text-center py-4">
-                                        <p class="text-danger">Error loading contacts: ${data.error}</p>
-                                    </td>
-                                </tr>
-                            `;
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error fetching Apollo contacts:', error);
-
-                                // Special handling for rate limit errors
-                                if (error.message === 'rate_limit_exceeded') {
-                                    elements.apolloContactsTable.innerHTML = `
-                                <tr>
-                                    <td colspan="14" class="text-center py-4">
-                                        <div class="alert alert-warning">
-                                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                                            <strong>Rate limit exceeded</strong>
-                                            <p class="mb-0">You've reached the API rate limit. Please wait a few minutes before trying again.</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `;
-                                } else {
-                                    elements.apolloContactsTable.innerHTML = `
-                                <tr>
-                                    <td colspan="14" class="text-center py-4">
-                                        <p class="text-danger">Error: ${error.message}</p>
-                                    </td>
-                                </tr>
-                            `;
-                                }
-                            })
-                            .finally(() => {
-                                elements.loadingOverlay.classList.add('d-none');
-                            });
-                    }
-
-                    // Function to load Bigin contacts from API
-                    function loadBiginContacts() {
-                        elements.loadingOverlay.classList.remove('d-none');
-
-                        // Build query parameters
-                        const params = new URLSearchParams({
-                            page: state.bigin.page,
-                            perPage: state.bigin.pageSize
-                        });
-
-                        // Determine if we're doing a search or regular fetch
-                        let endpoint = '/api/bigin/contacts';
-
-                        if (state.bigin.searchQuery) {
-                            endpoint = '/api/bigin/contacts/search';
-                            params.append('query', state.bigin.searchQuery);
-                        }
-
-                        // Fetch actual data from API
-                        fetch(`${endpoint}?${params.toString()}`)
-                            .then(response => {
-                                if (response.status === 429) {
-                                    throw new Error('rate_limit_exceeded');
-                                }
-                                if (!response.ok) {
-                                    throw new Error('Failed to fetch Bigin contacts');
-                                }
-                                return response.json();
-                            })
-                            .then(data => {
-                                if (data.success) {
-                                    // Update state with API response data
-                                    state.bigin.contacts = data.contacts;
-                                    state.bigin.page = data.page;
-                                    state.bigin.totalContacts = data.totalContacts;
-                                    state.bigin.totalPages = Math.ceil(data.totalContacts / state.bigin.pageSize);
-
-                                    // Render contacts
-                                    renderBiginContacts(state.bigin.contacts);
-
-                                    // Update page controls
-                                    elements.biginPageInfo.textContent = `Page ${state.bigin.page} of ${state.bigin.totalPages || 1}`;
-                                    elements.prevPageBigin.disabled = state.bigin.page <= 1;
-                                    elements.nextPageBigin.disabled = state.bigin.page >= state.bigin.totalPages;
-
-                                    // Update counts
-                                    elements.biginContactsCount.textContent = `Bigin Contacts (${state.bigin.totalContacts})`;
-                                } else {
-                                    // Handle API error
-                                    console.error('API error:', data.error);
-                                    elements.biginContactsTable.innerHTML = `
-                                <tr>
-                                    <td colspan="9" class="text-center py-4">
-                                        <p class="text-danger">Error loading contacts: ${data.error}</p>
-                                    </td>
-                                </tr>
-                            `;
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error fetching Bigin contacts:', error);
-
-                                // Special handling for rate limit errors
-                                if (error.message === 'rate_limit_exceeded') {
-                                    elements.biginContactsTable.innerHTML = `
-                                <tr>
-                                    <td colspan="9" class="text-center py-4">
-                                        <div class="alert alert-warning">
-                                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                                            <strong>Rate limit exceeded</strong>
-                                            <p class="mb-0">You've reached the API rate limit. Please wait a few minutes before trying again.</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `;
-                                } else {
-                                    elements.biginContactsTable.innerHTML = `
-                                <tr>
-                                    <td colspan="9" class="text-center py-4">
-                                        <p class="text-danger">Error: ${error.message}</p>
-                                    </td>
-                                </tr>
-                            `;
-                                }
-                            })
-                            .finally(() => {
-                                elements.loadingOverlay.classList.add('d-none');
-                            });
-                    }
-
-                    // Render Apollo contacts in table
-                    function renderApolloContacts(contacts) {
-                        if (contacts.length === 0) {
+                            // Update button states
+                            updateButtonStates();
+                        } else {
+                            // Handle API error
+                            console.error('API error:', data.error);
                             elements.apolloContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="14" class="text-center py-4">
+                                        <p class="text-danger">Error loading contacts: ${data.error}</p>
+                                    </td>
+                                </tr>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching Apollo contacts:', error);
+
+                        // Special handling for rate limit errors
+                        if (error.message === 'rate_limit_exceeded') {
+                            elements.apolloContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="14" class="text-center py-4">
+                                        <div class="alert alert-warning">
+                                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                            <strong>Rate limit exceeded</strong>
+                                            <p class="mb-0">You've reached the API rate limit. Please wait a few minutes before trying again.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        } else {
+                            elements.apolloContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="14" class="text-center py-4">
+                                        <p class="text-danger">Error: ${error.message}</p>
+                                    </td>
+                                </tr>
+                            `;
+                        }
+                    })
+                    .finally(() => {
+                        elements.loadingOverlay.classList.add('d-none');
+                    });
+            }
+
+            // Function to load Bigin contacts from API
+            function loadBiginContacts() {
+                elements.loadingOverlay.classList.remove('d-none');
+
+                // Build query parameters
+                const params = new URLSearchParams({
+                    page: state.bigin.page,
+                    perPage: state.bigin.pageSize
+                });
+
+                // Determine if we're doing a search or regular fetch
+                let endpoint = '/api/bigin/contacts';
+
+                if (state.bigin.searchQuery) {
+                    endpoint = '/api/bigin/contacts/search';
+                    params.append('query', state.bigin.searchQuery);
+                }
+
+                // Fetch actual data from API
+                fetch(`${endpoint}?${params.toString()}`)
+                    .then(response => {
+                        if (response.status === 429) {
+                            throw new Error('rate_limit_exceeded');
+                        }
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch Bigin contacts');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            // Update state with API response data
+                            state.bigin.contacts = data.contacts;
+                            state.bigin.page = data.page;
+                            state.bigin.totalContacts = data.totalContacts;
+                            state.bigin.totalPages = Math.ceil(data.totalContacts / state.bigin.pageSize);
+
+                            // Render contacts
+                            renderBiginContacts(state.bigin.contacts);
+
+                            // Update page controls
+                            elements.biginPageInfo.textContent = `Page ${state.bigin.page} of ${state.bigin.totalPages || 1}`;
+                            elements.prevPageBigin.disabled = state.bigin.page <= 1;
+                            elements.nextPageBigin.disabled = state.bigin.page >= state.bigin.totalPages;
+
+                            // Update counts
+                            elements.biginContactsCount.textContent = `Bigin Contacts (${state.bigin.totalContacts})`;
+                        } else {
+                            // Handle API error
+                            console.error('API error:', data.error);
+                            elements.biginContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <p class="text-danger">Error loading contacts: ${data.error}</p>
+                                    </td>
+                                </tr>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching Bigin contacts:', error);
+
+                        // Special handling for rate limit errors
+                        if (error.message === 'rate_limit_exceeded') {
+                            elements.biginContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <div class="alert alert-warning">
+                                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                            <strong>Rate limit exceeded</strong>
+                                            <p class="mb-0">You've reached the API rate limit. Please wait a few minutes before trying again.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        } else {
+                            elements.biginContactsTable.innerHTML = `
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <p class="text-danger">Error: ${error.message}</p>
+                                    </td>
+                                </tr>
+                            `;
+                        }
+                    })
+                    .finally(() => {
+                        elements.loadingOverlay.classList.add('d-none');
+                    });
+            }
+
+            // Render Apollo contacts in table
+            function renderApolloContacts(contacts) {
+                if (contacts.length === 0) {
+                    elements.apolloContactsTable.innerHTML = `
                         <tr>
                             <td colspan="14" class="text-center py-4">
                                 <div class="empty-state">
@@ -1313,44 +1313,44 @@
                             </td>
                         </tr>
                     `;
-                            return;
-                        }
+                    return;
+                }
 
-                        let html = '';
-                        contacts.forEach(contact => {
-                                    const isSelected = state.apollo.selectedIds.has(contact.id);
-                                    const isSynced = state.syncedContacts.has(contact.id);
-                                    const isEmailRevealed = state.apollo.revealedEmails.has(contact.id);
-                                    const isPhoneRevealed = state.apollo.revealedPhones.has(contact.id);
+                let html = '';
+                contacts.forEach(contact => {
+                            const isSelected = state.apollo.selectedIds.has(contact.id);
+                            const isSynced = state.syncedContacts.has(contact.id);
+                            const isEmailRevealed = state.apollo.revealedEmails.has(contact.id);
+                            const isPhoneRevealed = state.apollo.revealedPhones.has(contact.id);
 
-                                    // Format email and phone for display (masked if not revealed)
-                                    const displayEmail = contact.email && isEmailRevealed 
-                                        ? contact.email 
-                                        : contact.email 
-                                            ? '••••••@••••••.com <span class="badge bg-secondary">Click Reveal</span>' 
-                                            : '';
-                                    
-                                    const displayPhone = contact.mobile_phone && isPhoneRevealed 
-                                        ? contact.mobile_phone 
-                                        : contact.mobile_phone 
-                                            ? '••••••••••• <span class="badge bg-secondary">Click Reveal</span>' 
-                                            : '';
-                                    
-                                    // Get organization info (either from organization object or direct property)
-                                    const orgName = contact.organization 
-                                        ? contact.organization.name 
-                                        : contact.organization_name || '';
+                            // Format email and phone for display (masked if not revealed)
+                            const displayEmail = contact.email && isEmailRevealed 
+                                ? contact.email 
+                                : contact.email 
+                                    ? '••••••@••••••.com <span class="badge bg-secondary">Click Reveal</span>' 
+                                    : '';
+                            
+                            const displayPhone = contact.mobile_phone && isPhoneRevealed 
+                                ? contact.mobile_phone 
+                                : contact.mobile_phone 
+                                    ? '••••••••••• <span class="badge bg-secondary">Click Reveal</span>' 
+                                    : '';
+                            
+                            // Get organization info (either from organization object or direct property)
+                            const orgName = contact.organization 
+                                ? contact.organization.name 
+                                : contact.organization_name || '';
 
-                                    // Get title properly from the correct field
-                                    const title = contact.title || '';
+                            // Get title properly from the correct field
+                            const title = contact.title || '';
 
-                                    // Get location information
-                                    const city = contact.city || '';
-                                    const state = contact.state || '';
-                                    const country = contact.country || '';
-                                    const location = [city, state, country].filter(Boolean).join(', ');
+                            // Get location information
+                            const city = contact.city || '';
+                            const state = contact.state || '';
+                            const country = contact.country || '';
+                            const location = [city, state, country].filter(Boolean).join(', ');
 
-                                    html += `
+                            html += `
                         <tr class="contact-row ${isSelected ? 'selected' : ''}" data-id="${contact.id}">
                             <td class="col-checkbox">
                                 <input class="form-check-input contact-select" type="checkbox" 
